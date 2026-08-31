@@ -1,0 +1,13 @@
+.idea
+data/
+logs/
+*.exe
+config.yaml
+
+# 本地构建产物
+/claude2api
+
+# 下载来参考的外部开源项目（非本项目代码）
+/协议/
+
+sessionKey.txt

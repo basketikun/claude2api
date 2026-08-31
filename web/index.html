@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claude2API</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <section class="view view-login hidden">
+      <div class="login-shell">
+        <div class="box">
+          <a class="login-brand" href="/" aria-label="Claude2API 首页">
+            <span class="login-logo"><img src="/static/claude.svg" alt="" /></span>
+            <span>Claude2API</span>
+          </a>
+          <h2>登录</h2>
+          <p class="sub">输入密码或访问密钥</p>
+          <form id="form">
+            <label for="credential">访问凭证</label>
+            <input
+              id="credential"
+              type="password"
+              placeholder="请输入密码或访问密钥"
+              autocomplete="current-password"
+              required
+              autofocus
+            />
+            <button id="btn" type="submit">继续</button>
+            <div class="err" id="err" role="alert"></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <div class="view view-admin hidden app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="/static/claude.svg" alt="Claude2API" class="logo" />
+          </div>
+          <div>
+            <h1>Claude2API</h1>
+          </div>
+        </div>
+        <nav class="nav" id="nav">
+          <button class="nav-item" data-page="pool">号池选择</button>
+          <button class="nav-item active" data-page="accounts">账号管理</button>
+          <button class="nav-item" data-page="keys">密钥管理</button>
+          <button class="nav-item" data-page="api">API 文档</button>
+          <button class="nav-item" data-page="chat">对话测试</button>
+          <button class="nav-item" data-page="logs">调用日志</button>
+          <button class="nav-item" data-page="system">系统管理</button>
+        </nav>
+        <div class="nav-foot">
+          <button id="btn-logout" class="nav-link nav-logout">退出登录</button>
+        </div>
+      </aside>
+      <main class="main">
+        <div id="msg" class="msg hidden"></div>
+        <section class="page hidden pool-page" id="page-pool">
+          <div class="pool-wrap">
+            <div class="pool-top">
+              <div class="pool-title">
+                <img src="/static/claude.svg" alt="Claude" class="logo" />
+                <h1>
+                  Claude2API <span class="count" id="pool-count"></span>
+                </h1>
+              </div>
+              <div class="pool-top-actions">
+                <button id="btn-pool-refresh" class="btn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  >
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+                  </svg>
+                  刷新
+                </button>
+                <button id="btn-pool-random" class="btn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"
+                    />
+                  </svg>
+                  随机账号
+                </button>
+              </div>
+            </div>
+
+            <div class="pool-grid" id="pool-list"></div>
+            <div class="pager" id="pool-pager"></div>
+          </div>
+        </section>
+        <section class="page" id="page-accounts">
+          <header class="page-head">
+            <h2>账号管理</h2>
+            <div class="stats" id="stats"></div>
+          </header>
+
+          <div class="toolbar">
+            <button id="btn-refresh" class="btn">刷新</button>
+            <button id="btn-refresh-all" class="btn">一键刷新</button>
+            <button id="btn-import" class="btn">批量导入</button>
+            <button id="btn-del-expired" class="btn">删除失效</button>
+          </div>
+          <div id="refresh-all-progress" class="task-progress hidden">
+            <div><span>正在刷新账号</span><span class="task-progress-text"></span></div>
+            <progress value="0" max="1"></progress>
+          </div>
+          <div class="model-strip">
+            <div class="model-strip-title">系统可用模型</div>
+            <div class="model-list" id="account-models">加载中…</div>
+          </div>
+          <div class="filterbar">
+            <div class="tabs" id="status-tabs">
+              <button class="tab active" data-status="all">
+                全部 <span class="cnt" id="cnt-all">0</span>
+              </button>
+              <button class="tab" data-status="active">
+                正常 <span class="cnt" id="cnt-active">0</span>
+              </button>
+              <button class="tab" data-status="expired">
+                已失效 <span class="cnt" id="cnt-expired">0</span>
+              </button>
+              <button class="tab" data-status="error">
+                错误 <span class="cnt" id="cnt-error">0</span>
+              </button>
+              <button class="tab" data-status="unknown">
+                未查询 <span class="cnt" id="cnt-unknown">0</span>
+              </button>
+            </div>
+            <div class="filter-right">
+              <input
+                id="search"
+                type="search"
+                placeholder="搜索邮箱 / 组织…"
+                class="search-inp"
+              />
+            </div>
+          </div>
+
+          <div class="table-area">
+            <table class="acc-table">
+              <thead>
+                <tr>
+                  <th class="col-idx">#</th>
+                  <th>邮箱</th>
+                  <th>状态</th>
+                  <th>创建日期</th>
+                  <th>已存活</th>
+                  <th>上次刷新</th>
+                  <th class="col-act">操作</th>
+                </tr>
+              </thead>
+              <tbody id="acc-body">
+                <tr>
+                  <td colspan="7" class="empty">加载中…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-foot">
+            <div class="pager" id="pager"></div>
+            <label class="inline"
+              >每页
+              <select id="page-size" class="sel">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+          </div>
+        </section>
+        <section class="page hidden" id="page-keys">
+          <header class="page-head">
+            <h2>密钥管理</h2>
+          </header>
+
+          <div class="form-block">
+            <div class="block-title">号池访问密钥</div>
+            <p class="block-desc">
+              前端号池页面需在请求头带
+              <code>Authorization: Bearer &lt;密钥&gt;</code>
+              才能访问；管理员密码也可用于后台联调和号池访问。
+            </p>
+            <div class="key-new">
+              <input
+                id="key-name"
+                type="text"
+                class="inp"
+                placeholder="备注名称（可选）"
+              />
+              <input
+                id="key-value"
+                type="text"
+                class="inp"
+                placeholder="自定义密钥，留空则随机生成"
+              />
+              <button id="btn-key-create" class="btn btn-primary">
+                新建密钥
+              </button>
+            </div>
+            <table class="acc-table" style="margin-top: 16px">
+              <thead>
+                <tr>
+                  <th class="col-idx">#</th>
+                  <th>备注</th>
+                  <th>密钥</th>
+                  <th>创建时间</th>
+                  <th class="col-act">操作</th>
+                </tr>
+              </thead>
+              <tbody id="keys-body">
+                <tr>
+                  <td colspan="5" class="empty">加载中…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="page hidden" id="page-api">
+          <header class="page-head">
+            <div>
+              <h2>API 文档</h2>
+            </div>
+          </header>
+
+          <div class="api-docs">
+            <aside class="api-nav">
+              <div class="api-nav-title">接口目录</div>
+              <a href="#api-overview">快速开始</a>
+              <a href="#api-chat">POST /chat/completions</a>
+              <a href="#api-responses">POST /responses</a>
+              <a href="#api-messages">POST /messages</a>
+              <a href="#api-models">GET /models</a>
+            </aside>
+            <div class="api-content">
+              <article class="api-card" id="api-overview">
+                <div class="api-kicker">QUICK START</div>
+                <h3>统一接口说明</h3>
+                <p>
+                  兼容 OpenAI、Anthropic
+                  客户端，服务会自动轮询号池账号并在失败时切换。
+                </p>
+                <div class="api-meta">
+                  <span>Base URL</span><code id="api-base">—</code>
+                </div>
+                <div class="api-meta">
+                  <span>OpenAI 鉴权</span
+                  ><code>Authorization: Bearer &lt;号池密钥&gt;</code>
+                </div>
+                <div class="api-meta">
+                  <span>Anthropic 鉴权</span
+                  ><code>x-api-key: &lt;号池密钥&gt;</code>
+                </div>
+                <p class="api-note">
+                  模型支持 <code>-thinking</code> 后缀开启扩展思考，例如
+                  <code>claude-sonnet-4-5-thinking</code>。
+                </p>
+              </article>
+              <article class="api-card" id="api-chat">
+                <div class="api-route">
+                  <span class="method post">POST</span
+                  ><code>/v1/chat/completions</code>
+                </div>
+                <p>OpenAI Chat Completions 兼容接口，支持流式输出。</p>
+                <h4>请求参数</h4>
+                <div class="api-params">
+                  <b>model</b><span>string · 必填</span><em>模型名称</em
+                  ><b>messages</b><span>array · 必填</span
+                  ><em>角色与内容数组</em><b>stream</b
+                  ><span>boolean · 可选</span><em>是否以 SSE 流式返回</em
+                  ><b>temperature</b><span>number · 可选</span><em>采样温度</em>
+                </div>
+                <h4>响应</h4>
+                <pre>
+{ "id": "chatcmpl-...", "choices": [{ "message": { "role": "assistant", "content": "..." } }] }</pre
+                >
+              </article>
+              <article class="api-card" id="api-responses">
+                <div class="api-route">
+                  <span class="method post">POST</span
+                  ><code>/v1/responses</code>
+                </div>
+                <p>OpenAI Responses API 兼容接口，适用于新一代 OpenAI SDK。</p>
+                <h4>请求参数</h4>
+                <div class="api-params">
+                  <b>model</b><span>string · 必填</span><em>模型名称</em
+                  ><b>input</b><span>string / array · 必填</span
+                  ><em>用户输入内容</em><b>stream</b><span>boolean · 可选</span
+                  ><em>是否流式返回</em>
+                </div>
+                <h4>响应</h4>
+                <pre>
+{ "id": "resp_...", "object": "response", "output": [{ "type": "message", "content": [{ "text": "..." }] }] }</pre
+                >
+              </article>
+              <article class="api-card" id="api-messages">
+                <div class="api-route">
+                  <span class="method post">POST</span><code>/v1/messages</code>
+                </div>
+                <p>Anthropic Messages 兼容接口，可直接复用 Claude SDK。</p>
+                <h4>请求参数</h4>
+                <div class="api-params">
+                  <b>model</b><span>string · 必填</span><em>模型名称</em
+                  ><b>max_tokens</b><span>integer · 必填</span
+                  ><em>最大输出 token 数</em><b>messages</b
+                  ><span>array · 必填</span><em>对话消息数组</em><b>stream</b
+                  ><span>boolean · 可选</span><em>是否流式返回</em>
+                </div>
+                <h4>响应</h4>
+                <pre>
+{ "id": "msg_...", "type": "message", "role": "assistant", "content": [{ "type": "text", "text": "..." }] }</pre
+                >
+              </article>
+              <article class="api-card" id="api-models">
+                <div class="api-route">
+                  <span class="method get">GET</span><code>/v1/models</code>
+                </div>
+                <p>获取当前服务可用的模型列表。</p>
+                <h4>请求参数</h4>
+                <div class="api-params">
+                  <b>无</b><span>—</span><em>仅需携带鉴权请求头</em>
+                </div>
+                <h4>响应</h4>
+                <pre>
+{ "object": "list", "data": [{ "id": "claude-sonnet-4-5", "object": "model" }] }</pre
+                >
+              </article>
+            </div>
+          </div>
+        </section>
+        <section class="page hidden" id="page-chat">
+          <header class="page-head">
+            <div>
+              <h2>对话测试</h2>
+              <p class="page-desc">支持多轮对话、流式输出和图片上传</p>
+            </div>
+          </header>
+          <div class="chat-layout">
+            <div class="chat-main">
+              <div id="chat-messages" class="chat-messages">
+                <div class="chat-empty">开始一段新的对话吧</div>
+              </div>
+              <div class="chat-composer">
+                <div id="chat-attachments" class="chat-attachments"></div>
+                <textarea
+                  id="test-message"
+                  class="inp chat-input"
+                  rows="3"
+                  placeholder="输入消息，按 Enter 发送，Shift + Enter 换行…"
+                ></textarea>
+                <div class="chat-actions">
+                  <div class="chat-tools">
+                    <select id="test-model" class="inp sel chat-model-select">
+                      <option value="">加载模型中…</option>
+                    </select>
+                    <label class="btn chat-upload"
+                      >图片
+                      <input
+                        id="chat-image"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                      />
+                    </label>
+                    <button id="btn-chat-clear" class="btn">清空</button>
+                    <span class="cfg-hint" id="test-hint"></span>
+                  </div>
+                  <button id="btn-test-send" class="btn btn-primary">
+                    发送
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="page hidden" id="page-logs">
+          <header class="page-head">
+            <div>
+              <h2>调用日志</h2>
+            </div>
+            <div class="stats" id="logs-stats"></div>
+          </header>
+
+          <div class="toolbar">
+            <button id="btn-logs-refresh" class="btn">刷新</button>
+            <button id="btn-logs-delete" class="btn" disabled>删除选中</button>
+            <div class="logs-keep">
+              <span>仅保留最近</span>
+              <input id="logs-keep" type="number" min="0" value="100" />
+              <span>条</span>
+              <button id="btn-logs-trim" class="btn">清理</button>
+            </div>
+          </div>
+
+          <div class="table-area">
+            <table class="acc-table log-table">
+              <thead>
+                <tr>
+                  <th><input id="logs-check-all" type="checkbox" aria-label="全选本页" /></th>
+                  <th>时间</th>
+                  <th>请求</th>
+                  <th>账号</th>
+                  <th>状态</th>
+                  <th>Token</th>
+                  <th>性能</th>
+                  <th aria-label="操作"></th>
+                </tr>
+              </thead>
+              <tbody id="logs-body">
+                <tr>
+                  <td colspan="8" class="empty">加载中…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-foot">
+            <div class="pager" id="logs-pager"></div>
+            <label class="inline"
+              >每页
+              <select id="logs-page-size" class="sel">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+          </div>
+        </section>
+        <section class="page hidden log-detail-page" id="page-log-detail">
+          <header class="log-detail-page-head">
+            <button id="log-detail-back" class="btn-link log-detail-back">← 调用日志</button>
+            <h2 id="log-detail-title">调用详情</h2>
+          </header>
+          <div id="log-detail-body"></div>
+        </section>
+        <section class="page hidden" id="page-system">
+          <header class="page-head">
+            <h2>系统管理</h2>
+          </header>
+
+          <div class="form-block">
+            <div class="settings-section">
+              <div class="block-title">基础配置</div>
+              <div class="settings-grid">
+                <label class="field"
+                  >出口代理
+                  <input
+                    id="cfg-proxy"
+                    type="text"
+                    placeholder="留空直连，如 socks5h://user:pass@host:port"
+                    class="inp"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="block-title">API 配置</div>
+              <div class="settings-grid">
+                <label class="field"
+                  >换号重试次数
+                  <input
+                    id="cfg-retry_count"
+                    type="number"
+                    min="0"
+                    placeholder="0 = 自动"
+                    class="inp"
+                  />
+                </label>
+                <label class="field"
+                  >超长上下文阈值（字符）
+                  <input
+                    id="cfg-max_chat_history_length"
+                    type="number"
+                    min="1"
+                    class="inp"
+                  />
+                </label>
+                <label class="field"
+                  >用完自动删会话
+                  <select id="cfg-chat_delete" class="inp sel">
+                    <option value="true">是</option>
+                    <option value="false">否</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="block-title">状态监测</div>
+              <p class="block-desc">
+                后台会定时查询每个账号，更新账号状态并处理已失效账号。
+              </p>
+              <div class="settings-grid">
+                <label class="field"
+                  >刷新间隔（秒）
+                  <input
+                    id="cfg-status_check_interval_seconds"
+                    type="number"
+                    min="1"
+                    class="inp"
+                    placeholder="21600（6 小时）"
+                  />
+                </label>
+                <label class="field"
+                  >会话失效时移除账号
+                  <select id="cfg-remove_invalid_account" class="inp sel">
+                    <option value="false">否</option>
+                    <option value="true">是</option>
+                  </select>
+                </label>
+                <label class="field"
+                  >记录详细请求日志
+                  <select id="cfg-detailed_api_log" class="inp sel">
+                    <option value="false">否，仅记录指标</option>
+                    <option value="true">是，记录请求与输出</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button id="btn-cfg-save" class="btn btn-primary">
+                保存设置
+              </button>
+              <span class="cfg-hint">保存后即时生效，无需重启</span>
+            </div>
+          </div>
+
+        </section>
+      </main>
+    <div id="confirm-mask" class="modal-mask hidden">
+      <div class="modal">
+        <div class="modal-title" id="confirm-title">确认操作</div>
+        <div class="modal-body" id="confirm-body"></div>
+        <div class="modal-actions">
+          <button id="confirm-cancel" class="btn">取消</button>
+          <button id="confirm-ok" class="btn btn-danger-solid">确认删除</button>
+        </div>
+      </div>
+    </div>
+    <div id="detail-mask" class="modal-mask hidden">
+      <div class="modal modal-lg">
+        <div class="modal-head">
+          <div class="modal-title" id="detail-title">账号详情</div>
+          <button id="detail-close" class="btn-link modal-x" aria-label="关闭账号详情">×</button>
+        </div>
+        <div class="modal-body detail-body" id="detail-body"></div>
+      </div>
+    </div>
+
+    <div id="pool-key-mask" class="modal-mask hidden">
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">访问密钥</div>
+            <div class="modal-sub">请输入号池访问密钥后继续</div>
+          </div>
+        </div>
+        <div class="modal-body pool-key-form">
+          <input
+            id="pool-key-input"
+            type="password"
+            class="inp"
+            placeholder="Bearer 密钥"
+            autocomplete="off"
+          />
+          <button id="pool-key-submit" class="btn btn-primary">确定</button>
+          <div id="pool-key-err" class="key-err"></div>
+        </div>
+      </div>
+    </div>
+    <div id="import-mask" class="modal-mask hidden">
+      <div class="modal modal-lg">
+        <div class="modal-head">
+          <div class="modal-title">批量导入 sessionKey</div>
+          <button id="import-close" class="btn-link modal-x" aria-label="关闭导入窗口">×</button>
+        </div>
+        <div class="modal-body detail-body">
+          <p class="block-desc">每行一个 sessionKey，导入时会自动查询邮箱和组织 UUID。</p>
+          <div id="import-progress" class="task-progress hidden">
+            <div><span>正在导入账号</span><span class="task-progress-text"></span></div>
+            <progress value="0" max="1"></progress>
+          </div>
+          <textarea
+            id="import-keys"
+            class="inp"
+            rows="8"
+            placeholder="每行粘贴一个 sessionKey"
+          ></textarea>
+          <div class="modal-actions">
+            <button id="btn-import-cancel" class="btn">取消</button>
+            <button id="btn-import-submit" class="btn btn-primary">
+              开始导入
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+services:
+  claude2api:
+    image: ghcr.io/basketikun/claude2api:latest
+    pull_policy: always
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml
+    restart: unless-stopped
