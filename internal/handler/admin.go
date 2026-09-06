@@ -243,3 +243,41 @@ func atoiDefault(s string, def int) int {
 	}
 	return def
 }
+
+// AdminSessionLimits 获取所有账号的会话限制信息
+func AdminSessionLimits(c *gin.Context) {
+	accounts := repository.LoadAccounts()
+	sessionInfo := make([]gin.H, 0, len(accounts))
+	
+	for _, account := range accounts {
+		accountInfo := gin.H{
+			"email":             account.Email,
+			"org_uuid":          account.OrgUUID, 
+			"status":            account.Status,
+			"last_limit_update": account.LastLimitUpdate,
+		}
+		
+		if account.SessionLimits != nil {
+			accountInfo["session_limits"] = gin.H{
+				"type":                     account.SessionLimits.Type,
+				"resets_at":                account.SessionLimits.ResetsAt,
+				"remaining":                account.SessionLimits.Remaining,
+				"per_model_limit":          account.SessionLimits.PerModelLimit,
+				"representative_claim":     account.SessionLimits.RepresentativeClaim,
+				"overage_disabled_reason":  account.SessionLimits.OverageDisabledReason,
+				"overage_in_use":           account.SessionLimits.OverageInUse,
+				"windows":                  account.SessionLimits.Windows,
+				"resolved":                 account.SessionLimits.Resolved,
+			}
+		} else {
+			accountInfo["session_limits"] = nil
+		}
+		
+		sessionInfo = append(sessionInfo, accountInfo)
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"accounts":    sessionInfo,
+		"total_count": len(accounts),
+	})
+}

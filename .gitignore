@@ -1,13 +1,65 @@
+# IDE and Editor
 .idea
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Sensitive Data - Database
 data/
-logs/
-*.exe
+*.db
+*.sqlite
+*.sqlite3
+app.db
+
+# Sensitive Data - Config & Keys
 config.yaml
+config.yml
+*.key
+*.pem
+*.p12
+*.pfx
+sessionKey.txt
+*.env
+.env
+.env.*
 
-# 本地构建产物
+# Logs
+logs/
+*.log
+
+# Build Artifacts
+*.exe
+*.dll
+*.so
+*.dylib
 /claude2api
+claude2api.exe
 
-# 下载来参考的外部开源项目（非本项目代码）
+# Go specific
+vendor/
+go.work
+go.work.sum
+
+# Test coverage
+*.out
+coverage.txt
+*.test
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Downloaded reference projects (non-project code)
 /协议/
 
-sessionKey.txt
+# OS specific
+Thumbs.db
+Desktop.ini
+HOW_IT_WORKS.md
+API_DOCUMENTATION.md
+SECURITY.md
+SESSION_LIMITS_FEATURE.md
+test_direct_claude.md

@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
@@ -35,6 +37,62 @@ const (
 	authPrefix   = "/__auth/"
 	authAcctPath = "__acct/"
 )
+
+// sessionLimitCapturingReader wraps an io.ReadCloser to capture session limits from SSE streams
+type sessionLimitCapturingReader struct {
+	io.Reader
+	accountEmail string
+	buffer       []byte
+}
+
+func (r *sessionLimitCapturingReader) Read(p []byte) (n int, err error) {
+	n, err = r.Reader.Read(p)
+	if n > 0 && r.accountEmail != "" {
+		// Append to buffer for parsing
+		r.buffer = append(r.buffer, p[:n]...)
+		
+		// Try to parse for message_limit events
+		scanner := bufio.NewScanner(bytes.NewReader(r.buffer))
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "data: ") {
+				go r.parseSessionLimit(line[6:])
+			}
+		}
+		// Keep unprocessed data in buffer
+		if len(r.buffer) > 100000 { // Reset buffer if too large
+			r.buffer = r.buffer[len(r.buffer)-10000:]
+		}
+	}
+	return n, err
+}
+
+func (r *sessionLimitCapturingReader) Close() error {
+	if closer, ok := r.Reader.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
+func (r *sessionLimitCapturingReader) parseSessionLimit(data string) {
+	var ev struct {
+		Type         string                    `json:"type"`
+		MessageLimit repository.SessionLimits `json:"message_limit"`
+	}
+	
+	if err := json.Unmarshal([]byte(data), &ev); err != nil {
+		return
+	}
+	
+	if ev.Type == "message_limit" {
+		slog.Info("[Proxy] Captured message_limit event from web chat", "email", r.accountEmail)
+		if updated := repository.UpdateAccountSessionLimits(r.accountEmail, &ev.MessageLimit); updated {
+			slog.Info("[Proxy] Session limits updated successfully from web chat", "email", r.accountEmail)
+		} else {
+			slog.Warn("[Proxy] Failed to update session limits from web chat", "email", r.accountEmail)
+		}
+	}
+}
 
 // 转发到上游的请求头白名单。
 var forwardReqHeaders = map[string]bool{
@@ -188,6 +246,11 @@ func proxyModifyResponse(resp *http.Response) error {
 
 	if isStream {
 		resp.Header.Set("Cache-Control", "no-cache")
+		// Wrap the response body to capture session limits from event stream
+		resp.Body = &sessionLimitCapturingReader{
+			Reader:       resp.Body,
+			accountEmail: pc.email,
+		}
 		return nil
 	}
 
@@ -543,9 +606,9 @@ func injectPoolBar(data []byte, email string) []byte {
 
 	bar := `<div id="__pool_bar__" class="pb-card">` +
 		`<span class="pb-acct" title="` + safeEmail + `">` +
-		`<span class="pb-label">账号</span>` +
+		`<span class="pb-label">Account</span>` +
 		`<b class="pb-email">` + safeEmail + `</b></span>` +
-		`<a class="pb-switch" href="/">切换账号</a>` +
+		`<a class="pb-switch" href="/">Switch Account</a>` +
 		`</div>`
 
 	css := `<style>` +

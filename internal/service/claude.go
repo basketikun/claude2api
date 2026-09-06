@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"claude2api/internal/utils"
+	"claude2api/internal/repository"
 
 	fhttp "github.com/bogdanfinn/fhttp"
 	"github.com/bogdanfinn/fhttp/cookiejar"
@@ -317,7 +318,7 @@ func (claudeAI *ClaudeAI) CreateConversation(model string, think bool) (string, 
 }
 
 // SendMessage 发送提示词。
-func (claudeAI *ClaudeAI) SendMessage(convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, error) {
+func (claudeAI *ClaudeAI) SendMessage(convID, model, accountEmail string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, error) {
 	// 固定字段对齐网页端请求。
 	body := map[string]any{
 		"prompt": prompt.Text,
@@ -401,11 +402,11 @@ func (claudeAI *ClaudeAI) SendMessage(convID, model string, prompt Prompt, attac
 		}
 		return resp.StatusCode, fmt.Errorf("发送消息 HTTP %d: %s", resp.StatusCode, bodyText)
 	}
-	return 200, parseCompletionSSE(resp.Body, onText)
+	return 200, parseCompletionSSE(resp.Body, accountEmail, onText)
 }
 
 // parseCompletionSSE 解析 completion 流。
-func parseCompletionSSE(raw io.Reader, onText func(string)) error {
+func parseCompletionSSE(raw io.Reader, accountEmail string, onText func(string)) error {
 	scanner := bufio.NewScanner(raw)
 	scanner.Buffer(make([]byte, 1024*1024), 4*1024*1024)
 
@@ -433,6 +434,21 @@ func parseCompletionSSE(raw io.Reader, onText func(string)) error {
 		}
 		if ev.Type == "error" && ev.Error.Message != "" {
 			return fmt.Errorf("upstream: %s", ev.Error.Message)
+		}
+		
+		// Capture session limit information
+		if ev.Type == "message_limit" && accountEmail != "" {
+			// Log for debugging
+			slog.Info("[API] Captured message_limit event", "email", accountEmail, "type", ev.MessageLimit.Type)
+			
+			// Update limits in background to avoid blocking response stream
+			go func() {
+				if updated := repository.UpdateAccountSessionLimits(accountEmail, &ev.MessageLimit); updated {
+					slog.Info("[API] Session limits updated successfully", "email", accountEmail)
+				} else {
+					slog.Warn("[API] Failed to update session limits", "email", accountEmail)
+				}
+			}()
 		}
 		switch ev.ContentBlock.Type {
 		case "tool_use":

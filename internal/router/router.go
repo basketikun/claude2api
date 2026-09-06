@@ -25,6 +25,7 @@ func NewMainEngine() *gin.Engine {
 	admin.POST("/logout", handler.AdminLogout)
 
 	admin.GET("/accounts", handler.AdminAccounts)
+	admin.GET("/accounts/session-limits", handler.AdminSessionLimits)
 	admin.POST("/accounts/import", handler.AdminImportAccounts)
 	admin.POST("/accounts/refresh", handler.AdminRefreshAccount)
 	admin.GET("/config", handler.AdminGetConfig)

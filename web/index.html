@@ -9,15 +9,19 @@
   <body>
     <section class="view view-login hidden">
       <div class="login-shell">
+        <div class="login-lang-switcher">
+          <button id="login-lang-en" class="lang-btn" data-lang="en" title="English">EN</button>
+          <button id="login-lang-zh" class="lang-btn" data-lang="zh" title="中文">中</button>
+        </div>
         <div class="box">
           <a class="login-brand" href="/" aria-label="Claude2API 首页">
             <span class="login-logo"><img src="/static/claude.svg" alt="" /></span>
             <span>Claude2API</span>
           </a>
-          <h2>登录</h2>
-          <p class="sub">输入密码或访问密钥</p>
+          <h2 data-i18n="loginTitle">登录</h2>
+          <p class="sub" data-i18n="loginSubtitle">输入密码或访问密钥</p>
           <form id="form">
-            <label for="credential">访问凭证</label>
+            <label for="credential" data-i18n="credential">访问凭证</label>
             <input
               id="credential"
               type="password"
@@ -26,7 +30,7 @@
               required
               autofocus
             />
-            <button id="btn" type="submit">继续</button>
+            <button id="btn" type="submit" data-i18n="continue">继续</button>
             <div class="err" id="err" role="alert"></div>
           </form>
         </div>
@@ -53,7 +57,11 @@
           <button class="nav-item" data-page="system">系统管理</button>
         </nav>
         <div class="nav-foot">
-          <button id="btn-logout" class="nav-link nav-logout">退出登录</button>
+          <div class="lang-switcher">
+            <button id="btn-lang-en" class="lang-btn" data-lang="en" title="English">EN</button>
+            <button id="btn-lang-zh" class="lang-btn" data-lang="zh" title="中文">中</button>
+          </div>
+          <button id="btn-logout" class="nav-link nav-logout" data-i18n="logout">退出登录</button>
         </div>
       </aside>
       <main class="main">
@@ -77,7 +85,7 @@
                   >
                     <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
                   </svg>
-                  刷新
+                  <span data-i18n="refresh">刷新</span>
                 </button>
                 <button id="btn-pool-random" class="btn">
                   <svg
@@ -90,7 +98,7 @@
                       d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"
                     />
                   </svg>
-                  随机账号
+                  <span data-i18n="randomAccount">随机账号</span>
                 </button>
               </div>
             </div>
@@ -101,40 +109,40 @@
         </section>
         <section class="page" id="page-accounts">
           <header class="page-head">
-            <h2>账号管理</h2>
+            <h2 data-i18n="accountManagement">账号管理</h2>
             <div class="stats" id="stats"></div>
           </header>
 
           <div class="toolbar">
-            <button id="btn-refresh" class="btn">刷新</button>
-            <button id="btn-refresh-all" class="btn">一键刷新</button>
-            <button id="btn-import" class="btn">批量导入</button>
-            <button id="btn-del-expired" class="btn">删除失效</button>
+            <button id="btn-refresh" class="btn" data-i18n="refresh">刷新</button>
+            <button id="btn-refresh-all" class="btn" data-i18n="refreshAll">一键刷新</button>
+            <button id="btn-import" class="btn" data-i18n="batchImport">批量导入</button>
+            <button id="btn-del-expired" class="btn" data-i18n="deleteExpired">删除失效</button>
           </div>
           <div id="refresh-all-progress" class="task-progress hidden">
-            <div><span>正在刷新账号</span><span class="task-progress-text"></span></div>
+            <div><span data-i18n="refreshing">正在刷新账号</span><span class="task-progress-text"></span></div>
             <progress value="0" max="1"></progress>
           </div>
           <div class="model-strip">
-            <div class="model-strip-title">系统可用模型</div>
+            <div class="model-strip-title" data-i18n="systemModels">系统可用模型</div>
             <div class="model-list" id="account-models">加载中…</div>
           </div>
           <div class="filterbar">
             <div class="tabs" id="status-tabs">
               <button class="tab active" data-status="all">
-                全部 <span class="cnt" id="cnt-all">0</span>
+                <span data-i18n="allAccounts"></span>全部</span> <span class="cnt" id="cnt-all">0</span>
               </button>
               <button class="tab" data-status="active">
-                正常 <span class="cnt" id="cnt-active">0</span>
+                <span data-i18n="activeAccounts">正常</span> <span class="cnt" id="cnt-active">0</span>
               </button>
               <button class="tab" data-status="expired">
-                已失效 <span class="cnt" id="cnt-expired">0</span>
+                <span data-i18n="expiredAccounts">已失效</span> <span class="cnt" id="cnt-expired">0</span>
               </button>
               <button class="tab" data-status="error">
-                错误 <span class="cnt" id="cnt-error">0</span>
+                <span data-i18n="errorAccounts">错误</span> <span class="cnt" id="cnt-error">0</span>
               </button>
               <button class="tab" data-status="unknown">
-                未查询 <span class="cnt" id="cnt-unknown">0</span>
+                <span data-i18n="unknownAccounts">未查询</span> <span class="cnt" id="cnt-unknown">0</span>
               </button>
             </div>
             <div class="filter-right">
@@ -152,17 +160,19 @@
               <thead>
                 <tr>
                   <th class="col-idx">#</th>
-                  <th>邮箱</th>
-                  <th>状态</th>
-                  <th>创建日期</th>
-                  <th>已存活</th>
-                  <th>上次刷新</th>
-                  <th class="col-act">操作</th>
+                  <th data-i18n="email">邮箱</th>
+                  <th data-i18n="status">状态</th>
+                  <th data-i18n="sessionLimit">会话限额</th>
+                  <th data-i18n="resetTime">重置时间</th>
+                  <th data-i18n="createdDate">创建日期</th>
+                  <th data-i18n="aliveFor">已存活</th>
+                  <th data-i18n="lastRefresh">上次刷新</th>
+                  <th class="col-act" data-i18n="actions">操作</th>
                 </tr>
               </thead>
               <tbody id="acc-body">
                 <tr>
-                  <td colspan="7" class="empty">加载中…</td>
+                  <td colspan="9" class="empty" data-i18n="loading">加载中…</td>
                 </tr>
               </tbody>
             </table>
@@ -182,15 +192,15 @@
         </section>
         <section class="page hidden" id="page-keys">
           <header class="page-head">
-            <h2>密钥管理</h2>
+            <h2 data-i18n="keyManagement">密钥管理</h2>
           </header>
 
           <div class="form-block">
-            <div class="block-title">号池访问密钥</div>
+            <div class="block-title" data-i18n="poolAccessKey">号池访问密钥</div>
             <p class="block-desc">
-              前端号池页面需在请求头带
-              <code>Authorization: Bearer &lt;密钥&gt;</code>
-              才能访问；管理员密码也可用于后台联调和号池访问。
+              <span data-i18n="keyDescription">前端号池页面需在请求头带</span>
+              <code>Authorization: Bearer &lt;<span data-i18n="keyValue">密钥</span>&gt;</code>
+              <span data-i18n="keyNote">才能访问；管理员密码也可用于后台联调和号池访问。</span>
             </p>
             <div class="key-new">
               <input
@@ -205,7 +215,7 @@
                 class="inp"
                 placeholder="自定义密钥，留空则随机生成"
               />
-              <button id="btn-key-create" class="btn btn-primary">
+              <button id="btn-key-create" class="btn btn-primary" data-i18n="createKey">
                 新建密钥
               </button>
             </div>
@@ -213,15 +223,15 @@
               <thead>
                 <tr>
                   <th class="col-idx">#</th>
-                  <th>备注</th>
-                  <th>密钥</th>
-                  <th>创建时间</th>
-                  <th class="col-act">操作</th>
+                  <th data-i18n="keyName">备注</th>
+                  <th data-i18n="keyValue">密钥</th>
+                  <th data-i18n="createdTime">创建时间</th>
+                  <th class="col-act" data-i18n="actions">操作</th>
                 </tr>
               </thead>
               <tbody id="keys-body">
                 <tr>
-                  <td colspan="5" class="empty">加载中…</td>
+                  <td colspan="5" class="empty" data-i18n="loading">加载中…</td>
                 </tr>
               </tbody>
             </table>
@@ -230,40 +240,40 @@
         <section class="page hidden" id="page-api">
           <header class="page-head">
             <div>
-              <h2>API 文档</h2>
+              <h2 data-i18n="apiTitle">API 文档</h2>
             </div>
           </header>
 
           <div class="api-docs">
             <aside class="api-nav">
-              <div class="api-nav-title">接口目录</div>
-              <a href="#api-overview">快速开始</a>
-              <a href="#api-chat">POST /chat/completions</a>
-              <a href="#api-responses">POST /responses</a>
-              <a href="#api-messages">POST /messages</a>
-              <a href="#api-models">GET /models</a>
+              <div class="api-nav-title" data-i18n="apiDirectory">接口目录</div>
+              <a href="#api-overview" data-i18n="apiOverview">快速开始</a>
+              <a href="#api-chat" data-i18n="apiChat">POST /chat/completions</a>
+              <a href="#api-responses" data-i18n="apiResponses">POST /responses</a>
+              <a href="#api-messages" data-i18n="apiMessages">POST /messages</a>
+              <a href="#api-models" data-i18n="apiModels">GET /models</a>
             </aside>
             <div class="api-content">
               <article class="api-card" id="api-overview">
                 <div class="api-kicker">QUICK START</div>
-                <h3>统一接口说明</h3>
-                <p>
+                <h3 data-i18n="unifiedInterface">统一接口说明</h3>
+                <p data-i18n="apiInterfaceDesc">
                   兼容 OpenAI、Anthropic
                   客户端，服务会自动轮询号池账号并在失败时切换。
                 </p>
                 <div class="api-meta">
-                  <span>Base URL</span><code id="api-base">—</code>
+                  <span data-i18n="baseURL">Base URL</span><code id="api-base">—</code>
                 </div>
                 <div class="api-meta">
-                  <span>OpenAI 鉴权</span
-                  ><code>Authorization: Bearer &lt;号池密钥&gt;</code>
+                  <span data-i18n="openaiAuth">OpenAI 鉴权</span
+                  ><code>Authorization: Bearer &lt;<span data-i18n="poolKey">号池密钥</span>&gt;</code>
                 </div>
                 <div class="api-meta">
-                  <span>Anthropic 鉴权</span
-                  ><code>x-api-key: &lt;号池密钥&gt;</code>
+                  <span data-i18n="anthropicAuth">Anthropic 鉴权</span
+                  ><code>x-api-key: &lt;<span data-i18n="poolKey">号池密钥</span>&gt;</code>
                 </div>
                 <p class="api-note">
-                  模型支持 <code>-thinking</code> 后缀开启扩展思考，例如
+                  <span data-i18n="modelThinkingNote">模型支持</span> <code>-thinking</code> <span data-i18n="thinkingSuffix">后缀开启扩展思考，例如</span>
                   <code>claude-sonnet-4-5-thinking</code>。
                 </p>
               </article>
@@ -272,16 +282,16 @@
                   <span class="method post">POST</span
                   ><code>/v1/chat/completions</code>
                 </div>
-                <p>OpenAI Chat Completions 兼容接口，支持流式输出。</p>
-                <h4>请求参数</h4>
+                <p data-i18n="apiChatDesc">OpenAI Chat Completions 兼容接口，支持流式输出。</p>
+                <h4 data-i18n="requestParams">请求参数</h4>
                 <div class="api-params">
-                  <b>model</b><span>string · 必填</span><em>模型名称</em
-                  ><b>messages</b><span>array · 必填</span
-                  ><em>角色与内容数组</em><b>stream</b
-                  ><span>boolean · 可选</span><em>是否以 SSE 流式返回</em
-                  ><b>temperature</b><span>number · 可选</span><em>采样温度</em>
+                  <b>model</b><span><span data-i18n="stringType">string</span> · <span data-i18n="required">必填</span></span><em data-i18n="modelName">模型名称</em
+                  ><b>messages</b><span><span data-i18n="arrayType">array</span> · <span data-i18n="required">必填</span></span
+                  ><em data-i18n="messagesArray">角色与内容数组</em><b>stream</b
+                  ><span><span data-i18n="booleanType">boolean</span> · <span data-i18n="optional">可选</span></span><em data-i18n="streamResponse">是否以 SSE 流式返回</em
+                  ><b>temperature</b><span><span data-i18n="numberType">number</span> · <span data-i18n="optional">可选</span></span><em data-i18n="temperature">采样温度</em>
                 </div>
-                <h4>响应</h4>
+                <h4 data-i18n="response">响应</h4>
                 <pre>
 { "id": "chatcmpl-...", "choices": [{ "message": { "role": "assistant", "content": "..." } }] }</pre
                 >
@@ -291,15 +301,15 @@
                   <span class="method post">POST</span
                   ><code>/v1/responses</code>
                 </div>
-                <p>OpenAI Responses API 兼容接口，适用于新一代 OpenAI SDK。</p>
-                <h4>请求参数</h4>
+                <p data-i18n="apiResponsesDesc">OpenAI Responses API 兼容接口，适用于新一代 OpenAI SDK。</p>
+                <h4 data-i18n="requestParams">请求参数</h4>
                 <div class="api-params">
-                  <b>model</b><span>string · 必填</span><em>模型名称</em
-                  ><b>input</b><span>string / array · 必填</span
-                  ><em>用户输入内容</em><b>stream</b><span>boolean · 可选</span
-                  ><em>是否流式返回</em>
+                  <b>model</b><span><span data-i18n="stringType">string</span> · <span data-i18n="required">必填</span></span><em data-i18n="modelName">模型名称</em
+                  ><b>input</b><span><span data-i18n="stringType">string</span> / <span data-i18n="arrayType">array</span> · <span data-i18n="required">必填</span></span
+                  ><em data-i18n="userInput">用户输入内容</em><b>stream</b><span><span data-i18n="booleanType">boolean</span> · <span data-i18n="optional">可选</span></span
+                  ><em data-i18n="streamResponse">是否流式返回</em>
                 </div>
-                <h4>响应</h4>
+                <h4 data-i18n="response">响应</h4>
                 <pre>
 { "id": "resp_...", "object": "response", "output": [{ "type": "message", "content": [{ "text": "..." }] }] }</pre
                 >
@@ -342,14 +352,14 @@
         <section class="page hidden" id="page-chat">
           <header class="page-head">
             <div>
-              <h2>对话测试</h2>
-              <p class="page-desc">支持多轮对话、流式输出和图片上传</p>
+              <h2 data-i18n="chatTest">对话测试</h2>
+              <p class="page-desc" data-i18n="chatTestDesc">支持多轮对话、流式输出和图片上传</p>
             </div>
           </header>
           <div class="chat-layout">
             <div class="chat-main">
               <div id="chat-messages" class="chat-messages">
-                <div class="chat-empty">开始一段新的对话吧</div>
+                <div class="chat-empty" data-i18n="startNewChat">开始一段新的对话吧</div>
               </div>
               <div class="chat-composer">
                 <div id="chat-attachments" class="chat-attachments"></div>
@@ -388,19 +398,19 @@
         <section class="page hidden" id="page-logs">
           <header class="page-head">
             <div>
-              <h2>调用日志</h2>
+              <h2 data-i18n="logs">调用日志</h2>
             </div>
             <div class="stats" id="logs-stats"></div>
           </header>
 
           <div class="toolbar">
-            <button id="btn-logs-refresh" class="btn">刷新</button>
-            <button id="btn-logs-delete" class="btn" disabled>删除选中</button>
+            <button id="btn-logs-refresh" class="btn" data-i18n="refresh">刷新</button>
+            <button id="btn-logs-delete" class="btn" data-i18n="deleteSelected" disabled>删除选中</button>
             <div class="logs-keep">
-              <span>仅保留最近</span>
+              <span data-i18n="keep">仅保留最近</span>
               <input id="logs-keep" type="number" min="0" value="100" />
-              <span>条</span>
-              <button id="btn-logs-trim" class="btn">清理</button>
+              <span data-i18n="items">条</span>
+              <button id="btn-logs-trim" class="btn" data-i18n="clean">清理</button>
             </div>
           </div>
 
@@ -409,18 +419,18 @@
               <thead>
                 <tr>
                   <th><input id="logs-check-all" type="checkbox" aria-label="全选本页" /></th>
-                  <th>时间</th>
-                  <th>请求</th>
-                  <th>账号</th>
-                  <th>状态</th>
-                  <th>Token</th>
-                  <th>性能</th>
+                  <th data-i18n="time">时间</th>
+                  <th data-i18n="request">请求</th>
+                  <th data-i18n="account">账号</th>
+                  <th data-i18n="statusCode">状态</th>
+                  <th data-i18n="tokens">Token</th>
+                  <th data-i18n="performance">性能</th>
                   <th aria-label="操作"></th>
                 </tr>
               </thead>
               <tbody id="logs-body">
                 <tr>
-                  <td colspan="8" class="empty">加载中…</td>
+                  <td colspan="8" class="empty" data-i18n="loading">加载中…</td>
                 </tr>
               </tbody>
             </table>
@@ -429,7 +439,7 @@
           <div class="table-foot">
             <div class="pager" id="logs-pager"></div>
             <label class="inline"
-              >每页
+              ><span data-i18n="perPage">每页</span>
               <select id="logs-page-size" class="sel">
                 <option value="10">10</option>
                 <option value="20">20</option>
@@ -447,15 +457,15 @@
         </section>
         <section class="page hidden" id="page-system">
           <header class="page-head">
-            <h2>系统管理</h2>
+            <h2 data-i18n="systemSettings">系统管理</h2>
           </header>
 
           <div class="form-block">
             <div class="settings-section">
-              <div class="block-title">基础配置</div>
+              <div class="block-title" data-i18n="basicConfig">基础配置</div>
               <div class="settings-grid">
                 <label class="field"
-                  >出口代理
+                  ><span data-i18n="outboundProxy">出口代理</span>
                   <input
                     id="cfg-proxy"
                     type="text"
@@ -467,10 +477,10 @@
             </div>
 
             <div class="settings-section">
-              <div class="block-title">API 配置</div>
+              <div class="block-title" data-i18n="apiConfig">API 配置</div>
               <div class="settings-grid">
                 <label class="field"
-                  >换号重试次数
+                  ><span data-i18n="retryCount">换号重试次数</span>
                   <input
                     id="cfg-retry_count"
                     type="number"
@@ -480,7 +490,7 @@
                   />
                 </label>
                 <label class="field"
-                  >超长上下文阈值（字符）
+                  ><span data-i18n="contextThreshold">超长上下文阈值（字符）</span>
                   <input
                     id="cfg-max_chat_history_length"
                     type="number"
@@ -489,23 +499,23 @@
                   />
                 </label>
                 <label class="field"
-                  >用完自动删会话
+                  ><span data-i18n="deleteChat">用完自动删会话</span>
                   <select id="cfg-chat_delete" class="inp sel">
-                    <option value="true">是</option>
-                    <option value="false">否</option>
+                    <option value="true" data-i18n="yes">是</option>
+                    <option value="false" data-i18n="no">否</option>
                   </select>
                 </label>
               </div>
             </div>
 
             <div class="settings-section">
-              <div class="block-title">状态监测</div>
-              <p class="block-desc">
+              <div class="block-title" data-i18n="statusMonitoring">状态监测</div>
+              <p class="block-desc" data-i18n="statusMonitoringDesc">
                 后台会定时查询每个账号，更新账号状态并处理已失效账号。
               </p>
               <div class="settings-grid">
                 <label class="field"
-                  >刷新间隔（秒）
+                  ><span data-i18n="refreshInterval">刷新间隔（秒）</span>
                   <input
                     id="cfg-status_check_interval_seconds"
                     type="number"
@@ -515,27 +525,27 @@
                   />
                 </label>
                 <label class="field"
-                  >会话失效时移除账号
+                  ><span data-i18n="removeInvalidAccount">会话失效时移除账号</span>
                   <select id="cfg-remove_invalid_account" class="inp sel">
-                    <option value="false">否</option>
-                    <option value="true">是</option>
+                    <option value="false" data-i18n="no">否</option>
+                    <option value="true" data-i18n="yes">是</option>
                   </select>
                 </label>
                 <label class="field"
-                  >记录详细请求日志
+                  ><span data-i18n="detailedLogging">记录详细请求日志</span>
                   <select id="cfg-detailed_api_log" class="inp sel">
-                    <option value="false">否，仅记录指标</option>
-                    <option value="true">是，记录请求与输出</option>
+                    <option value="false" data-i18n="detailedLoggingNo">否，仅记录指标</option>
+                    <option value="true" data-i18n="detailedLoggingYes">是，记录请求与输出</option>
                   </select>
                 </label>
               </div>
             </div>
 
             <div class="form-actions">
-              <button id="btn-cfg-save" class="btn btn-primary">
+              <button id="btn-cfg-save" class="btn btn-primary" data-i18n="save">
                 保存设置
               </button>
-              <span class="cfg-hint">保存后即时生效，无需重启</span>
+              <span class="cfg-hint" data-i18n="noRestart">保存后即时生效，无需重启</span>
             </div>
           </div>
 
@@ -543,11 +553,11 @@
       </main>
     <div id="confirm-mask" class="modal-mask hidden">
       <div class="modal">
-        <div class="modal-title" id="confirm-title">确认操作</div>
+        <div class="modal-title" id="confirm-title" data-i18n="confirm">确认操作</div>
         <div class="modal-body" id="confirm-body"></div>
         <div class="modal-actions">
-          <button id="confirm-cancel" class="btn">取消</button>
-          <button id="confirm-ok" class="btn btn-danger-solid">确认删除</button>
+          <button id="confirm-cancel" class="btn" data-i18n="cancel">取消</button>
+          <button id="confirm-ok" class="btn btn-danger-solid" data-i18n="delete">确认删除</button>
         </div>
       </div>
     </div>
@@ -585,13 +595,13 @@
     <div id="import-mask" class="modal-mask hidden">
       <div class="modal modal-lg">
         <div class="modal-head">
-          <div class="modal-title">批量导入 sessionKey</div>
+          <div class="modal-title" data-i18n="batchImportTitle">批量导入 sessionKey</div>
           <button id="import-close" class="btn-link modal-x" aria-label="关闭导入窗口">×</button>
         </div>
         <div class="modal-body detail-body">
-          <p class="block-desc">每行一个 sessionKey，导入时会自动查询邮箱和组织 UUID。</p>
+          <p class="block-desc" data-i18n="batchImportDesc">每行一个 sessionKey，导入时会自动查询邮箱和组织 UUID。</p>
           <div id="import-progress" class="task-progress hidden">
-            <div><span>正在导入账号</span><span class="task-progress-text"></span></div>
+            <div><span data-i18n="importing">正在导入账号</span><span class="task-progress-text"></span></div>
             <progress value="0" max="1"></progress>
           </div>
           <textarea
@@ -601,8 +611,8 @@
             placeholder="每行粘贴一个 sessionKey"
           ></textarea>
           <div class="modal-actions">
-            <button id="btn-import-cancel" class="btn">取消</button>
-            <button id="btn-import-submit" class="btn btn-primary">
+            <button id="btn-import-cancel" class="btn" data-i18n="cancel">取消</button>
+            <button id="btn-import-submit" class="btn btn-primary" data-i18n="startImport">
               开始导入
             </button>
           </div>
@@ -611,6 +621,7 @@
     </div>
     </div>
 
+    <script src="/static/i18n.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

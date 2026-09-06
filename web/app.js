@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 function esc(s) {
   return String(s ?? "").replace(
@@ -29,12 +29,154 @@ function initAdmin(initialPage = "accounts", currentRole = "admin") {
   const adminRoot = document.querySelector(".view-admin");
   const $ = (sel) => adminRoot.querySelector(sel);
 
-  let ACCOUNTS = [];
+  // Initialize language switcher
+  const setupLanguageSwitcher = () => {
+    const currentLang = i18n.getLanguage();
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === currentLang);
+      btn.addEventListener('click', () => switchLanguage(btn.dataset.lang));
+    });
+  };
 
-let filterStatus = "all";
-let searchKw = "";
-let curPage = 1;
-let pageSize = 10;
+  const switchLanguage = (lang) => {
+    if (i18n.setLanguage(lang)) {
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+      });
+      // Re-render current page with new language
+      const currentPageBtn = document.querySelector('.nav-item.active');
+      if (currentPageBtn) {
+        const pageName = currentPageBtn.dataset.page;
+        switchPage(pageName);
+      }
+    }
+  };
+
+  // Setup language switcher when admin view loads
+  setupLanguageSwitcher();
+
+  // Function to update all UI text based on current language
+  const updateUIText = () => {
+    // Navigation items
+    document.querySelector('[data-page="pool"]').textContent = i18n.t('poolSelection');
+    document.querySelector('[data-page="accounts"]').textContent = i18n.t('accountManagement');
+    document.querySelector('[data-page="keys"]').textContent = i18n.t('keyManagement');
+    document.querySelector('[data-page="api"]').textContent = i18n.t('apiDocs');
+    document.querySelector('[data-page="chat"]').textContent = i18n.t('chatTest');
+    document.querySelector('[data-page="logs"]').textContent = i18n.t('callLogs');
+    document.querySelector('[data-page="system"]').textContent = i18n.t('systemSettings');
+    $("#btn-logout").textContent = i18n.t('logout');
+    
+    // Common buttons
+    const updateButtonText = (selector, key) => {
+      const el = $(selector);
+      if (el) el.textContent = i18n.t(key);
+    };
+    
+    updateButtonText('#btn-refresh', 'refresh');
+    updateButtonText('#btn-refresh-all', 'refreshAll');
+    updateButtonText('#btn-import', 'batchImport');
+    updateButtonText('#btn-del-expired', 'deleteExpired');
+    updateButtonText('#btn-pool-refresh', 'refresh');
+    updateButtonText('#btn-pool-random', 'randomAccount');
+    updateButtonText('#btn-key-create', 'createKey');
+    updateButtonText('#btn-logs-refresh', 'logsRefresh');
+    updateButtonText('#btn-logs-delete', 'deleteSelected');
+    updateButtonText('#btn-logs-trim', 'clean');
+    updateButtonText('#btn-cfg-save', 'save');
+    updateButtonText('#btn-test-send', 'send');
+    updateButtonText('#btn-chat-clear', 'clear');
+    updateButtonText('#btn-import-submit', 'startImport');
+    updateButtonText('#btn-import-cancel', 'cancel');
+    updateButtonText('#confirm-cancel', 'cancel');
+    updateButtonText('#detail-close', 'close');
+    updateButtonText('#import-close', 'close');
+    updateButtonText('#pool-key-submit', 'confirm');
+    updateButtonText('#log-detail-back', i18n.t('back') + ' ' + i18n.t('callLogs'));
+    
+    // Input placeholders
+    const updatePlaceholder = (selector, key) => {
+      const el = $(selector);
+      if (el) el.placeholder = i18n.t(key);
+    };
+    
+    updatePlaceholder('#search', 'searchEmail');
+    updatePlaceholder('#key-name', 'noteLabel');
+    updatePlaceholder('#key-value', 'customKey');
+    updatePlaceholder('#pool-key-input', i18n.t('credential'));
+    updatePlaceholder('#import-keys', 'importKey');
+    updatePlaceholder('#cfg-proxy', 'proxyPlaceholder');
+    updatePlaceholder('#test-message', 'enterMessage');
+    updatePlaceholder('#logs-keep', '');
+    
+    // Page headers and labels
+    const updateHeaderText = (selector, key) => {
+      const el = $(selector);
+      if (el) {
+        const h2 = el.querySelector('h2');
+        if (h2) h2.textContent = i18n.t(key);
+      }
+    };
+    
+    updateHeaderText('#page-accounts', 'accountManagement');
+    updateHeaderText('#page-keys', 'keyManagement');
+    updateHeaderText('#page-api', 'apiDocs');
+    updateHeaderText('#page-chat', 'chatTest');
+    updateHeaderText('#page-logs', 'callLogs');
+    updateHeaderText('#page-system', 'systemSettings');
+    
+    // Update table headers with translations
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (key && i18n.t(key) !== key) {
+        el.textContent = i18n.t(key);
+      }
+    });
+    
+    // Tabs - preserve count spans
+    const tabs = {
+      'all': 'allAccounts',
+      'active': 'activeAccounts',
+      'expired': 'expiredAccounts',
+      'error': 'errorAccounts',
+      'unknown': 'unknownAccounts'
+    };
+    for (const [status, key] of Object.entries(tabs)) {
+      const tab = $(`[data-status="${status}"]`);
+      if (tab) {
+        const textSpan = tab.querySelector('[data-i18n]');
+        if (textSpan) {
+          textSpan.textContent = i18n.t(key);
+        }
+      }
+    }
+    
+    // Re-render to update dynamic content
+    if ($('.page:not(.hidden)') === $("#page-accounts")) {
+      renderTable();
+      renderStats();
+    }
+  };
+
+  // Update UI text on language change
+  const originalSetLanguage = i18n.setLanguage.bind(i18n);
+  i18n.setLanguage = function(lang) {
+    const result = originalSetLanguage(lang);
+    if (result) updateUIText();
+    return result;
+  };
+
+  let ACCOUNTS = [];
+  let filterStatus = "all";
+  let searchKw = "";
+  let curPage = 1;
+  let pageSize = 10;
+
+  // Setup language switcher when admin view loads
+  setupLanguageSwitcher();
+  
+  // Update UI text immediately on load
+  updateUIText();
 
 const CONFIG_FIELDS = [
   "proxy",
@@ -136,6 +278,116 @@ function statusOf(a) {
   return a.status || "unknown";
 }
 
+function renderSessionLimit(a) {
+  if (!a.session_limits || !a.session_limits.resolved || !a.session_limits.resolved.limit) {
+    return '<span class="badge badge-gray" title="No session data available yet">—</span>';
+  }
+  
+  const limit = a.session_limits.resolved.limit;
+  const percent = limit.percent || 0;
+  const windows = a.session_limits.windows || {};
+  
+  let badgeClass = 'badge-green';
+  let emoji = '✓';
+  let title = `Used: ${percent}%`;
+  
+  // Add window info to tooltip
+  if (windows['5h']) {
+    title += `\n5h: ${(windows['5h'].utilization * 100).toFixed(1)}% (${windows['5h'].status})`;
+  }
+  if (windows['7d']) {
+    title += `\n7d: ${(windows['7d'].utilization * 100).toFixed(1)}% (${windows['7d'].status})`;
+  }
+  
+  if (percent >= 90) {
+    badgeClass = 'badge-red';
+    emoji = '⚠';
+  } else if (percent >= 70) {
+    badgeClass = 'badge-yellow';
+    emoji = '⚡';
+  }
+  
+  return `<span class="badge ${badgeClass}" title="${esc(title)}">${emoji} ${percent}%</span>`;
+}
+
+function getResetTimestamp(a) {
+  if (!a.session_limits || !a.session_limits.resolved || !a.session_limits.resolved.limit) {
+    return '';
+  }
+  return a.session_limits.resolved.limit.resets_at || '';
+}
+
+function renderResetTime(a) {
+  const resetAt = getResetTimestamp(a);
+  if (!resetAt) {
+    return '<span class="text-muted">—</span>';
+  }
+  
+  const resetDate = new Date(resetAt);
+  const now = new Date();
+  const diff = resetDate - now;
+  
+  if (diff <= 0) {
+    return `<span class="text-muted">${i18n.t('reset')}</span>`;
+  }
+  
+  return formatCountdown(diff);
+}
+
+function formatCountdown(ms) {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) {
+    const h = hours % 24;
+    return `<span class="countdown">${days}${i18n.t('days')} ${h}${i18n.t('hours')}</span>`;
+  } else if (hours > 0) {
+    const m = minutes % 60;
+    return `<span class="countdown">${hours}${i18n.t('hours')} ${m}${i18n.t('minutes')}</span>`;
+  } else if (minutes > 0) {
+    const s = seconds % 60;
+    return `<span class="countdown">${minutes}${i18n.t('minutes')} ${s}${i18n.t('seconds')}</span>`;
+  } else {
+    return `<span class="countdown">${seconds}${i18n.t('seconds')}</span>`;
+  }
+}
+
+function updateCountdowns() {
+  const cells = document.querySelectorAll('.reset-time');
+  cells.forEach(cell => {
+    const resetAt = cell.dataset.resetTime;
+    if (!resetAt) return;
+    
+    const resetDate = new Date(resetAt);
+    const now = new Date();
+    const diff = resetDate - now;
+    
+    if (diff <= 0) {
+      cell.innerHTML = `<span class="text-muted">${i18n.t('reset')}</span>`;
+    } else {
+      cell.innerHTML = formatCountdown(diff);
+    }
+  });
+}
+
+// Start countdown timer
+let countdownInterval = null;
+function startCountdownTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+  }
+  countdownInterval = setInterval(updateCountdowns, 1000);
+}
+
+function stopCountdownTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
 function statusCounts() {
   const c = {
     all: ACCOUNTS.length,
@@ -155,10 +407,10 @@ function statusCounts() {
 function renderStats() {
   const c = statusCounts();
   $("#stats").innerHTML =
-    `<span>账号 <b>${c.all}</b></span>` +
-    `<span>正常 <b>${c.active}</b></span>` +
-    `<span>失效 <b>${c.expired}</b></span>` +
-    `<span>错误 <b>${c.error}</b></span>`;
+    `<span>${i18n.t('accounts')} <b>${c.all}</b></span>` +
+    `<span>${i18n.t('activeAccounts')} <b>${c.active}</b></span>` +
+    `<span>${i18n.t('expiredAccounts')} <b>${c.expired}</b></span>` +
+    `<span>${i18n.t('errorAccounts')} <b>${c.error}</b></span>`;
 
   for (const k of ["all", "active", "expired", "error", "unknown"]) {
     const el = $("#cnt-" + k);
@@ -170,10 +422,10 @@ function statusBadge(status) {
   status = status || "unknown";
   const label =
     {
-      active: "正常",
-      expired: "已失效",
-      error: "错误",
-      unknown: "未查询",
+      active: i18n.t('statusActive'),
+      expired: i18n.t('statusExpired'),
+      error: i18n.t('statusError'),
+      unknown: i18n.t('statusUnknown'),
     }[status] || status;
   return `<span class="badge ${status}">${esc(label)}</span>`;
 }
@@ -194,10 +446,10 @@ function fmtSurvived(t) {
   const d = Math.floor(sec / 86400);
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  if (d > 0) return `${d} 天 ${h} 小时`;
-  if (h > 0) return `${h} 小时 ${m} 分钟`;
-  if (m > 0) return `${m} 分钟`;
-  return `${sec} 秒`;
+  if (d > 0) return `${d} ${i18n.t('days')} ${h} ${i18n.t('hours')}`;
+  if (h > 0) return `${h} ${i18n.t('hours')} ${m} ${i18n.t('minutes')}`;
+  if (m > 0) return `${m} ${i18n.t('minutes')}`;
+  return `${sec} ${i18n.t('seconds')}`;
 }
 
 function filteredAccounts() {
@@ -217,12 +469,12 @@ function renderTable() {
   const rows = filteredAccounts();
 
   if (!ACCOUNTS.length) {
-    body.innerHTML = `<tr><td colspan="7" class="empty">暂无账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty">${i18n.t('noAccounts')}</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="7" class="empty">没有符合条件的账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty">${i18n.t('noResults')}</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
@@ -237,13 +489,15 @@ function renderTable() {
       <td>${start + i + 1}</td>
       <td class="mono">${esc(a.email)}</td>
       <td>${statusBadge(a.status)}</td>
+      <td>${renderSessionLimit(a)}</td>
+      <td class="reset-time" data-reset-time="${getResetTimestamp(a)}">${renderResetTime(a)}</td>
       <td class="mono">${esc(fmtTime(a.created_at) || "—")}</td>
       <td>${esc(fmtSurvived(a.created_at))}</td>
       <td class="mono">${esc(fmtTime(a.updated_at) || "—")}</td>
       <td>
-        <button class="btn-sm act-refresh">刷新</button>
-        <button class="btn-sm act-detail">详情</button>
-        <button class="btn-sm btn-danger act-del">删除</button>
+        <button class="btn-sm act-refresh">${i18n.t('refresh')}</button>
+        <button class="btn-sm act-detail">${i18n.t('details')}</button>
+        <button class="btn-sm btn-danger act-del">${i18n.t('delete')}</button>
       </td>
     </tr>`)
     .join("");
@@ -254,7 +508,7 @@ function renderTable() {
 function renderPager(total, totalPages) {
   const pager = $("#pager");
   if (totalPages <= 1) {
-    pager.innerHTML = `<span class="pager-info">共 ${total} 条</span>`;
+    pager.innerHTML = `<span class="pager-info">${i18n.t('total')} ${total} ${i18n.t('items')}</span>`;
     return;
   }
   const btn = (label, page, disabled, active) =>
@@ -271,21 +525,22 @@ function renderPager(total, totalPages) {
   add(totalPages);
   pages.sort((a, b) => a - b);
 
-  let html = btn("上一页", curPage - 1, curPage === 1, false);
+  let html = btn(i18n.t('back'), curPage - 1, curPage === 1, false);
   let prev = 0;
   for (const p of pages) {
     if (prev && p - prev > 1) html += `<span class="page-gap">…</span>`;
     html += btn(p, p, false, p === curPage);
     prev = p;
   }
-  html += btn("下一页", curPage + 1, curPage === totalPages, false);
-  html += `<span class="pager-info">共 ${total} 条 · ${curPage}/${totalPages} 页</span>`;
+  html += btn(i18n.t('continue'), curPage + 1, curPage === totalPages, false);
+  html += `<span class="pager-info">${i18n.t('total')} ${total} ${i18n.t('items')} · ${curPage}/${totalPages} ${i18n.t('pages')}</span>`;
   pager.innerHTML = html;
 }
 
 function rerender() {
   renderStats();
   renderTable();
+  startCountdownTimer();
 }
 
 async function loadAccounts() {
@@ -294,7 +549,7 @@ async function loadAccounts() {
     ACCOUNTS = data.accounts || [];
     rerender();
   } catch (e) {
-    showMsg("加载账号失败: " + e.message, "err");
+    showMsg(i18n.t('accountLoadFailed') + ": " + e.message, "err");
   }
 }
 
@@ -325,9 +580,9 @@ async function loadAccountModels() {
               `<button type="button" class="model-pill" data-model="${esc(name)}">${esc(name)}</button>`,
           )
           .join("")
-      : '<span class="model-empty">暂无可用模型</span>';
+      : `<span class="model-empty">${i18n.t('loading')}</span>`;
   } catch (e) {
-    box.innerHTML = `<span class="model-error">加载失败：${esc(e.message)}</span>`;
+    box.innerHTML = `<span class="model-error">${i18n.t('error')}：${esc(e.message)}</span>`;
   }
 }
 
@@ -346,7 +601,7 @@ function setProgress(id, completed, total, text = `${completed}/${total}`) {
 
 async function importAccounts() {
   const text = $("#import-keys").value;
-  if (!text.trim()) return showMsg("请输入 sessionKey", "err");
+  if (!text.trim()) return showMsg(i18n.t('importKey'), "err");
   const btn = $("#btn-import-submit");
   btn.disabled = true;
   try {
@@ -362,43 +617,43 @@ async function importAccounts() {
         const line = event.split("\n").find((line) => line.startsWith("data:"));
         if (!line) continue;
         result = JSON.parse(line.slice(5));
-        btn.textContent = result.done ? "导入完成" : "导入中…";
-        setProgress("#import-progress", result.completed ?? result.total, result.total, `成功 ${result.imported}，失败 ${result.failed}`);
+        btn.textContent = result.done ? i18n.t('importComplete') : i18n.t('importing');
+        setProgress("#import-progress", result.completed ?? result.total, result.total, i18n.t('successFailed', { success: result.imported, failed: result.failed }));
       }
       if (done) break;
     }
     $("#import-keys").value = "";
     $("#import-mask").classList.add("hidden");
     await loadAccounts();
-    showMsg(`导入完成：成功 ${result.imported}，失败 ${result.failed}`, result.failed ? "err" : "ok");
+    showMsg(i18n.t('importComplete') + ': ' + i18n.t('successFailed', { success: result.imported, failed: result.failed }), result.failed ? "err" : "ok");
   } catch (e) {
-    showMsg("导入失败: " + e.message, "err");
+    showMsg(i18n.t('importFailed') + ": " + e.message, "err");
   } finally {
     btn.disabled = false;
-    btn.textContent = "开始导入";
+    btn.textContent = i18n.t('startImport');
   }
 }
 
 async function refreshAccount(email, button) {
   button.disabled = true;
-  button.textContent = "刷新中…";
+  button.textContent = i18n.t('refreshInProgress');
   try {
     const r = await api("/api/accounts/refresh", "POST", { email });
     await loadAccounts();
-    showMsg(r.removed ? `已移除 ${email}` : `已更新 ${email}`, "ok");
+    showMsg(r.removed ? i18n.t('accountDeleted') : i18n.t('accountsRefreshed'), "ok");
   } catch (e) {
-    showMsg("刷新失败: " + e.message, "err");
+    showMsg(i18n.t('accountRefreshFailed') + ": " + e.message, "err");
   } finally {
     button.disabled = false;
-    button.textContent = "刷新";
+    button.textContent = i18n.t('refresh');
   }
 }
 
 async function refreshAllAccounts() {
   const btn = $("#btn-refresh-all"), count = ACCOUNTS.length;
-  if (!count) return showMsg("当前没有可刷新的账号", "ok");
+  if (!count) return showMsg(i18n.t('noAccounts'), "ok");
   btn.disabled = true;
-  btn.textContent = "刷新中…";
+  btn.textContent = i18n.t('refreshInProgress');
   let completed = 0;
   setProgress("#refresh-all-progress", 0, count);
   try {
@@ -407,40 +662,40 @@ async function refreshAllAccounts() {
       finally { setProgress("#refresh-all-progress", ++completed, count); }
     }));
     const failed = results.filter((r) => r.status === "rejected").length;
-    setProgress("#refresh-all-progress", count, count, failed ? `完成，失败 ${failed}` : "刷新完成");
+    setProgress("#refresh-all-progress", count, count, failed ? i18n.t('successFailed', { success: count - failed, failed }) : i18n.t('importComplete'));
     await loadAccounts();
-    showMsg(failed ? `刷新完成：成功 ${count - failed}，失败 ${failed}` : `已刷新 ${count} 个账号`, failed ? "err" : "ok");
+    showMsg(failed ? i18n.t('successFailed', { success: count - failed, failed }) : i18n.t('accountsRefreshed'), failed ? "err" : "ok");
   } catch (e) {
-    showMsg("一键刷新失败: " + e.message, "err");
+    showMsg(i18n.t('accountRefreshFailed') + ": " + e.message, "err");
   } finally {
     btn.disabled = false;
-    btn.textContent = "一键刷新";
+    btn.textContent = i18n.t('refreshAll');
   }
 }
 
 async function deleteOne(email) {
-  const ok = await confirmDialog(`确认删除账号 ${email} ？`, {
-    title: "删除账号",
+  const ok = await confirmDialog(i18n.t('deleteAccountConfirm', { email }), {
+    title: i18n.t('deleteAccountTitle'),
   });
   if (!ok) return;
   try {
     await api("/api/delete", "POST", { email });
     await loadAccounts();
-    showMsg(`已删除 ${email}`, "ok");
+    showMsg(i18n.t('accountDeleted'), "ok");
   } catch (e) {
-    showMsg("删除失败: " + e.message, "err");
+    showMsg(i18n.t('error') + ": " + e.message, "err");
   }
 }
 
 async function deleteExpired() {
   const n = statusCounts().expired;
   if (!n) {
-    showMsg("当前没有失效账号", "ok");
+    showMsg(i18n.t('noAccounts'), "ok");
     return;
   }
   const ok = await confirmDialog(
-    `确认删除全部 ${n} 个失效账号？此操作不可撤销。`,
-    { title: "一键删除失效账号" },
+    i18n.t('deleteExpiredConfirm', { count: n }),
+    { title: i18n.t('deleteExpiredTitle') },
   );
   if (!ok) return;
   const btn = $("#btn-del-expired");
@@ -448,9 +703,9 @@ async function deleteExpired() {
   try {
     const data = await api("/api/delete-expired", "POST", {});
     await loadAccounts();
-    showMsg(`已删除 ${data.removed} 个失效账号`, "ok");
+    showMsg(i18n.t('expiredAccountsDeleted', { count: data.removed }), "ok");
   } catch (e) {
-    showMsg("删除失败: " + e.message, "err");
+    showMsg(i18n.t('deleteExpiredFailed') + ": " + e.message, "err");
   } finally {
     btn.disabled = false;
   }
@@ -460,18 +715,66 @@ function openDetail(email) {
   const a = ACCOUNTS.find((x) => x.email === email);
   if (!a) return;
   const rows = [
-    ["邮箱", a.email],
+    [i18n.t('email'), a.email],
     [
-      "状态",
-      { active: "正常", expired: "已失效", error: "错误", unknown: "未查询" }[
+      i18n.t('status'),
+      { active: i18n.t('statusActive'), expired: i18n.t('statusExpired'), error: i18n.t('statusError'), unknown: i18n.t('statusUnknown') }[
         a.status || "unknown"
       ] || a.status,
     ],
-    ["组织 UUID", a.org_uuid || "—"],
-    ["创建时间", fmtTime(a.created_at) || "—"],
-    ["已存活", fmtSurvived(a.created_at)],
-    ["更新时间", fmtTime(a.updated_at) || "—"],
+    [i18n.t('organizationUUID'), a.org_uuid || "—"],
+    [i18n.t('createdDate'), fmtTime(a.created_at) || "—"],
+    [i18n.t('aliveFor'), fmtSurvived(a.created_at)],
+    [i18n.t('lastRefresh'), fmtTime(a.updated_at) || "—"],
   ];
+
+  // Add session limit information if available
+  if (a.session_limits) {
+    const limits = a.session_limits;
+    rows.push([`━━━ ${i18n.t('sessionLimits')} ━━━`, '━━━━━━━━━━━━━━━━━━']);
+    rows.push([i18n.t('lastUpdated'), a.last_limit_update ? fmtTime(a.last_limit_update) : "—"]);
+    
+    if (limits.resolved && limits.resolved.limit) {
+      const limit = limits.resolved.limit;
+      rows.push([i18n.t('status'), limits.resolved.status || "—"]);
+      rows.push([i18n.t('sessionUsed'), `${limit.percent}%`]);
+      rows.push([i18n.t('limitType'), `${limit.kind} / ${limit.group}`]);
+      rows.push([i18n.t('severity'), limit.severity || "—"]);
+      rows.push([i18n.t('resetsAt'), limit.resets_at ? new Date(limit.resets_at).toLocaleString() : "—"]);
+    }
+    
+    // Show window utilization if available
+    if (limits.windows) {
+      rows.push([`━━━ ${i18n.t('usageWindows')} ━━━`, '━━━━━━━━━━━━━━━━━━']);
+      
+      if (limits.windows['5h']) {
+        const w = limits.windows['5h'];
+        const resetTime = new Date(w.resets_at * 1000).toLocaleString();
+        rows.push([i18n.t('hourlyWindow'), `${(w.utilization * 100).toFixed(2)}% used`]);
+        rows.push(['5h ' + i18n.t('status'), w.status]);
+        rows.push(['5h ' + i18n.t('resetsAt'), resetTime]);
+      }
+      
+      if (limits.windows['7d']) {
+        const w = limits.windows['7d'];
+        const resetTime = new Date(w.resets_at * 1000).toLocaleString();
+        rows.push([i18n.t('dailyWindow'), `${(w.utilization * 100).toFixed(2)}% used`]);
+        rows.push(['7d ' + i18n.t('status'), w.status]);
+        rows.push(['7d ' + i18n.t('resetsAt'), resetTime]);
+      }
+    }
+    
+    if (limits.representative_claim) {
+      rows.push([i18n.t('rateLimit'), limits.representative_claim]);
+    }
+    
+    if (limits.overage_disabled_reason) {
+      rows.push([i18n.t('overageStatus'), limits.overage_disabled_reason]);
+    }
+  } else {
+    rows.push([`━━━ ${i18n.t('sessionLimits')} ━━━`, '━━━━━━━━━━━━━━━━━━']);
+    rows.push([i18n.t('sessionLimits'), i18n.t('noSessionData')]);
+  }
 
   const info = rows
     .map(
@@ -480,7 +783,7 @@ function openDetail(email) {
     )
     .join("");
 
-  $("#detail-title").textContent = "账号详情";
+  $("#detail-title").textContent = i18n.t('details');
   $("#detail-body").innerHTML = `<div class="detail-info">${info}</div>`;
   $("#detail-mask").classList.remove("hidden");
 }
@@ -513,10 +816,10 @@ async function saveConfig() {
   btn.disabled = true;
   try {
     await api("/api/config", "POST", patch);
-    showMsg("设置已保存，即时生效", "ok");
+    showMsg(i18n.t('settingsSaved'), "ok");
     await loadConfig();
   } catch (e) {
-    showMsg("保存设置失败: " + e.message, "err");
+    showMsg(i18n.t('settingsSaveFailed') + ": " + e.message, "err");
   } finally {
     btn.disabled = false;
   }
@@ -543,7 +846,7 @@ function renderMarkdown(value) {
 function renderChat() {
   const box = $("#chat-messages");
   if (!chatHistory.length) {
-    box.innerHTML = '<div class="chat-empty">开始一段新的对话吧</div>';
+    box.innerHTML = `<div class="chat-empty">${i18n.t('startNewChat')}</div>`;
     return;
   }
   box.innerHTML = chatHistory
@@ -559,12 +862,12 @@ function renderChat() {
         .filter((x) => x.type === "image_url")
         .map(
           (x) =>
-            `<img class="chat-image" src="${x.image_url.url}" alt="上传的图片">`,
+            `<img class="chat-image" src="${x.image_url.url}" alt="${i18n.t('uploadImage')}">`,
         )
         .join("");
       const isUser = m.role === "user";
       return `<div class="chat-row ${isUser ? "user" : "assistant"}">
-      <div class="chat-avatar">${isUser ? "你" : '<img src="/static/claude.svg" alt="Claude">'}</div>
+      <div class="chat-avatar">${isUser ? i18n.t('you') || 'You' : '<img src="/static/claude.svg" alt="Claude">'}</div>
       <div class="chat-bubble">${imgs}${text ? `<div class="chat-text">${text}</div>` : ""}</div>
     </div>`;
     })
@@ -580,10 +883,10 @@ async function loadChatModels() {
       ? models
           .map((m) => `<option value="${esc(m.id)}">${esc(m.id)}</option>`)
           .join("")
-      : '<option value="">暂无可用模型</option>';
+      : `<option value="">${i18n.t('loading')}</option>`;
   } catch (e) {
-    $("#test-model").innerHTML = '<option value="">加载失败</option>';
-    showMsg("加载模型失败: " + e.message, "err");
+    $("#test-model").innerHTML = `<option value="">${i18n.t('error')}</option>`;
+    showMsg(i18n.t('error') + ": " + e.message, "err");
   }
 }
 
@@ -610,13 +913,13 @@ async function sendTestChat() {
   const key = authToken;
   const message = $("#test-message").value.trim();
   if (!message) {
-    showMsg("请输入测试消息", "err");
+    showMsg(i18n.t('enterMessage'), "err");
     return;
   }
   const btn = $("#btn-test-send");
   const hint = $("#test-hint");
   btn.disabled = true;
-  hint.textContent = "请求中…";
+  hint.textContent = i18n.t('requestInProgress');
   const content = [
     { type: "text", text: message },
     ...chatImages.map((x) => ({
@@ -668,9 +971,9 @@ async function sendTestChat() {
       }
       if (done) break;
     }
-    hint.textContent = `耗时 ${Math.round(performance.now() - started)} ms`;
+    hint.textContent = i18n.t('duration') + ` ${Math.round(performance.now() - started)} ms`;
   } catch (e) {
-    chatHistory[chatHistory.length - 1].content = "请求失败：" + e.message;
+    chatHistory[chatHistory.length - 1].content = i18n.t('requestFailed') + "：" + e.message;
     renderChat();
     hint.textContent = "";
   } finally {
@@ -680,6 +983,12 @@ async function sendTestChat() {
 
 function switchPage(name) {
   if (currentRole !== "admin" && name !== "pool") return;
+  
+  // Stop countdown timer when leaving accounts page
+  if (name !== "accounts") {
+    stopCountdownTimer();
+  }
+  
   document
     .querySelectorAll(".nav-item")
     .forEach((b) => b.classList.toggle("active", b.dataset.page === (name === "log-detail" ? "logs" : name)));
@@ -710,14 +1019,14 @@ async function loadKeys() {
         <td>${i + 1}</td>
         <td>${esc(k.name || "—")}</td>
         <td><div class="key-cell"><span class="k">${esc(k.key)}</span>
-          <button class="btn-sm act-copy">复制</button></div></td>
+          <button class="btn-sm act-copy">${i18n.t('copy')}</button></div></td>
         <td class="mono">${esc(fmtTime(k.created_at) || "—")}</td>
-        <td><button class="btn-sm btn-danger act-key-del">删除</button></td>
+        <td><button class="btn-sm btn-danger act-key-del">${i18n.t('delete')}</button></td>
       </tr>`,
       )
       .join("");
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="5" class="empty">加载失败：${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5" class="empty">${i18n.t('error')}：${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -730,9 +1039,9 @@ async function createKey() {
     $("#key-name").value = "";
     $("#key-value").value = "";
     await loadKeys();
-    showMsg("密钥已创建", "ok");
+    showMsg(i18n.t('keyCreated'), "ok");
   } catch (e) {
-    showMsg("创建密钥失败: " + e.message, "err");
+    showMsg(i18n.t('keyCreatedFailed') + ": " + e.message, "err");
   } finally {
     $("#btn-key-create").disabled = false;
   }
@@ -740,16 +1049,16 @@ async function createKey() {
 
 async function deleteKey(id) {
   const ok = await confirmDialog(
-    "确认删除该密钥？删除后使用它的用户将无法访问号池。",
-    { title: "删除密钥" },
+    i18n.t('deleteKeyConfirm'),
+    { title: i18n.t('deleteKeyTitle') },
   );
   if (!ok) return;
   try {
     await api("/api/keys/delete", "POST", { id: Number(id) });
     await loadKeys();
-    showMsg("密钥已删除", "ok");
+    showMsg(i18n.t('keyDeleted'), "ok");
   } catch (e) {
-    showMsg("删除密钥失败: " + e.message, "err");
+    showMsg(i18n.t('keyDeleteFailed') + ": " + e.message, "err");
   }
 }
 
@@ -767,9 +1076,9 @@ async function loadLogs() {
     logsTotal = data.total || 0;
     const success = logs.filter((l) => l.success).length;
     const avgTPS = logs.length ? logs.reduce((n, l) => n + (l.tps || 0), 0) / logs.length : 0;
-    $("#logs-stats").innerHTML = `<span><small>调用</small><b>${logsTotal}</b></span><span><small>成功</small><b>${success}/${logs.length}</b></span><span><small>TPS</small><b>${avgTPS.toFixed(1)}</b></span>`;
+    $("#logs-stats").innerHTML = `<span><small>${i18n.t('calls')}</small><b>${logsTotal}</b></span><span><small>${i18n.t('successful')}</small><b>${success}/${logs.length}</b></span><span><small>TPS</small><b>${avgTPS.toFixed(1)}</b></span>`;
     if (!logs.length) {
-      body.innerHTML = `<tr><td colspan="8" class="empty">暂无调用日志</td></tr>`;
+      body.innerHTML = `<tr><td colspan="8" class="empty">${i18n.t('noLogs')}</td></tr>`;
       updateLogSelection();
       renderLogsPager();
       return;
@@ -777,8 +1086,8 @@ async function loadLogs() {
     body.innerHTML = logs
       .map((l) => {
         const status = l.success
-          ? `<span class="log-status ok"><i></i>成功</span>`
-          : `<span class="log-status err" title="${esc(l.error || "")}"><i></i>失败</span>`;
+          ? `<span class="log-status ok"><i></i>${i18n.t('successful')}</span>`
+          : `<span class="log-status err" title="${esc(l.error || "")}"><i></i>${i18n.t('error')}</span>`;
         return `<tr data-log-id="${l.id}">
         <td><input class="log-check" type="checkbox" value="${l.id}" aria-label="选择日志 ${l.id}"></td>
         <td class="log-time"><b>${esc(fmtTime(l.created_at).split(" ")[1] || "—")}</b><span>${esc(fmtTime(l.created_at).split(" ")[0] || "")}</span></td>
@@ -787,14 +1096,14 @@ async function loadLogs() {
         <td>${status}<span class="log-code">HTTP ${l.status_code || "—"}</span></td>
         <td class="log-token mono"><b>${l.input_tokens || 0}</b><i>→</i><b>${l.output_tokens || 0}</b></td>
         <td class="log-performance"><b>${fmtSeconds(l.first_token_ms)}</b><span>${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)}</span></td>
-        <td><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id}">查看<span>→</span></button></td>
+        <td><button class="log-open act-log-detail" data-id="${l.id}" aria-label="View call ${l.id}">${i18n.t('details')}<span>→</span></button></td>
       </tr>`;
       })
       .join("");
     updateLogSelection();
     renderLogsPager();
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="8" class="empty">加载失败：${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" class="empty">${i18n.t('error')}：${esc(e.message)}</td></tr>`;
     updateLogSelection();
   }
 }
@@ -804,33 +1113,33 @@ function updateLogSelection() {
   const selected = checks.filter((el) => el.checked);
   $("#logs-check-all").checked = checks.length > 0 && selected.length === checks.length;
   $("#btn-logs-delete").disabled = selected.length === 0;
-  $("#btn-logs-delete").textContent = selected.length ? `删除选中（${selected.length}）` : "删除选中";
+  $("#btn-logs-delete").textContent = selected.length ? i18n.t('deleteSelected') + `（${selected.length}）` : i18n.t('deleteSelected');
 }
 
 async function deleteSelectedLogs() {
   const ids = [...document.querySelectorAll(".log-check:checked")].map((el) => Number(el.value));
-  if (!ids.length || !(await confirmDialog(`确认删除选中的 ${ids.length} 条日志？`, { title: "删除日志" }))) return;
+  if (!ids.length || !(await confirmDialog(i18n.t('deleteLogsConfirm', { count: ids.length }), { title: i18n.t('deleteLogsTitle') }))) return;
   try {
     const data = await api("/api/logs/delete", "POST", { ids });
     logsPage = 1;
     await loadLogs();
-    showMsg(`已删除 ${data.removed} 条日志`, "ok");
+    showMsg(i18n.t('logsDeleted', { count: data.removed }), "ok");
   } catch (e) {
-    showMsg("删除日志失败：" + e.message, "err");
+    showMsg(i18n.t('deleteLogsFailed') + "：" + e.message, "err");
   }
 }
 
 async function trimLogs() {
   const keep = Number($("#logs-keep").value);
-  if (!Number.isInteger(keep) || keep < 0) return showMsg("保留条数必须是非负整数", "err");
-  if (!(await confirmDialog(`确认仅保留最近 ${keep} 条日志？`, { title: "清理日志" }))) return;
+  if (!Number.isInteger(keep) || keep < 0) return showMsg(i18n.t('error'), "err");
+  if (!(await confirmDialog(i18n.t('cleanLogsConfirm', { count: keep }), { title: i18n.t('cleanLogsTitle') }))) return;
   try {
     const data = await api("/api/logs/delete", "POST", { keep });
     logsPage = 1;
     await loadLogs();
-    showMsg(`已清理 ${data.removed} 条日志`, "ok");
+    showMsg(i18n.t('logsCleaned', { count: data.removed }), "ok");
   } catch (e) {
-    showMsg("清理日志失败：" + e.message, "err");
+    showMsg(i18n.t('cleanLogsFailed') + "：" + e.message, "err");
   }
 }
 
@@ -838,21 +1147,21 @@ async function showLogDetail(id) {
   try {
     const data = await api(`/api/logs/${id}`);
     const l = data.log;
-    $("#log-detail-title").innerHTML = `调用详情 <span>#${l.id}</span>`;
+    $("#log-detail-title").innerHTML = i18n.t('logDetail') + ` <span>#${l.id}</span>`;
     $("#log-detail-body").innerHTML = `
       <div class="log-detail-meta">
-        ${logMeta("请求", l.endpoint, l.model || "—")}
-        ${logMeta("账号", l.account || "—")}
-        ${logMeta("结果", `${l.success ? "成功" : "失败"} · HTTP ${l.status_code || "—"}`, fmtTime(l.created_at))}
-        ${logMeta("性能", `${fmtSeconds(l.first_token_ms)} 首字`, `${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)} 总耗时`)}
+        ${logMeta(i18n.t('request'), l.endpoint, l.model || "—")}
+        ${logMeta(i18n.t('account'), l.account || "—")}
+        ${logMeta(i18n.t('result'), `${l.success ? i18n.t('success') : i18n.t('failed')} · HTTP ${l.status_code || "—"}`, fmtTime(l.created_at))}
+        ${logMeta(i18n.t('performance'), `${fmtSeconds(l.first_token_ms)} ${i18n.t('firstToken')}`, `${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)} ${i18n.t('totalTime')}`)}
       </div>
-      ${l.error ? `<div class="log-error-box"><b>请求错误</b><span>${esc(l.error)}</span></div>` : ""}
-      <section class="log-detail-section"><div class="log-section-head"><div><small>REQUEST</small><h3>请求消息</h3></div><span>${l.input_tokens || 0} tokens</span></div>${renderLogRequest(l.request)}</section>
-      <section class="log-detail-section"><div class="log-section-head"><div><small>RESPONSE</small><h3>模型输出</h3></div><span>${l.output_tokens || 0} tokens</span></div>${l.response ? `<div class="log-response">${renderMarkdown(l.response)}</div>` : detailDisabled()}</section>`;
+      ${l.error ? `<div class="log-error-box"><b>${i18n.t('requestError')}</b><span>${esc(l.error)}</span></div>` : ""}
+      <section class="log-detail-section"><div class="log-section-head"><div><small>REQUEST</small><h3>${i18n.t('requestMessage')}</h3></div><span>${l.input_tokens || 0} tokens</span></div>${renderLogRequest(l.request)}</section>
+      <section class="log-detail-section"><div class="log-section-head"><div><small>RESPONSE</small><h3>${i18n.t('modelOutput')}</h3></div><span>${l.output_tokens || 0} tokens</span></div>${l.response ? `<div class="log-response">${renderMarkdown(l.response)}</div>` : detailDisabled()}</section>`;
     switchPage("log-detail");
     window.scrollTo(0, 0);
   } catch (e) {
-    showMsg("加载日志详情失败: " + e.message, "err");
+    showMsg("i18n.t('logDetailsFailed') + " + e.message, "err");
   }
 }
 
@@ -861,7 +1170,7 @@ function logMeta(label, value, sub = "") {
 }
 
 function detailDisabled() {
-  return `<div class="log-detail-off"><b>未记录详细内容</b><span>可在系统管理中开启“记录详细请求日志”。</span></div>`;
+  return `<div class="log-detail-off"><b>${i18n.t('detailsNotRecorded')}</b><span>可在系统管理中开启“记录详细请求日志”。</span></div>`;
 }
 
 function renderLogRequest(value) {
@@ -905,7 +1214,7 @@ function renderLogContent(content) {
   return content.map((part) => {
     if (part.type === "text" || part.type === "input_text" || part.type === "output_text") return `<div class="log-message-text">${renderMarkdown(part.text || "")}</div>`;
     const url = part.image_url?.url || part.image_url || (part.type === "image" && part.source?.data ? `data:${part.source.media_type};base64,${part.source.data}` : "");
-    if (url && /^data:image\//.test(url)) return `<figure class="log-image"><img src="${esc(url)}" alt="请求图片"><figcaption>${esc(part.type)}</figcaption></figure>`;
+    if (url && /^data:image\//.test(url)) return `<figure class="log-image"><img src="${esc(url)}" alt="${i18n.t('requestImage')}"><figcaption>${esc(part.type)}</figcaption></figure>`;
     return `<div class="log-block"><span>${esc(part.type || "block")}</span><pre>${esc(JSON.stringify(part, null, 2))}</pre></div>`;
   }).join("");
 }
@@ -1142,6 +1451,33 @@ function initLogin() {
   const btn = loginRoot.querySelector("#btn");
   const credentialEl = loginRoot.querySelector("#credential");
 
+  // Setup language switcher for login page
+  const setupLoginLanguageSwitcher = () => {
+    const currentLang = i18n.getLanguage();
+    loginRoot.querySelectorAll('.lang-btn').forEach(langBtn => {
+      langBtn.classList.toggle('active', langBtn.dataset.lang === currentLang);
+      langBtn.addEventListener('click', () => {
+        if (i18n.setLanguage(langBtn.dataset.lang)) {
+          loginRoot.querySelectorAll('.lang-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.lang === langBtn.dataset.lang);
+          });
+          updateLoginText();
+        }
+      });
+    });
+  };
+
+  const updateLoginText = () => {
+    loginRoot.querySelector('h2').textContent = i18n.t('loginTitle');
+    loginRoot.querySelector('.sub').textContent = i18n.t('loginSubtitle');
+    loginRoot.querySelector('label').textContent = i18n.t('credential');
+    credentialEl.placeholder = i18n.t('credentialPlaceholder');
+    btn.textContent = i18n.t('continue');
+  };
+
+  setupLoginLanguageSwitcher();
+  updateLoginText();
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     errEl.textContent = "";
@@ -1161,9 +1497,9 @@ function initLogin() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      errEl.textContent = data.error || "登录失败";
+      errEl.textContent = data.error || i18n.t('loginFailed');
     } catch (e) {
-      errEl.textContent = "网络错误：" + e.message;
+      errEl.textContent = i18n.t('error') + ": " + e.message;
     } finally {
       btn.disabled = false;
     }
@@ -1182,10 +1518,10 @@ function initPool(poolRoot) {
   const pageSize = 24;
 
   const statusLabel = {
-    active: "正常",
-    expired: "已失效",
-    error: "错误",
-    unknown: "未查询",
+    active: i18n.t('statusActive'),
+    expired: i18n.t('statusExpired'),
+    error: i18n.t('statusError'),
+    unknown: i18n.t('statusUnknown'),
   };
   const iconArrow =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
@@ -1193,11 +1529,11 @@ function initPool(poolRoot) {
   function render() {
     if (!accounts.length) {
       countEl.textContent = "";
-      listEl.innerHTML = `<div class="empty">号池暂无可用账号</div>`;
+      listEl.innerHTML = `<div class="empty">${i18n.t('noAccounts')}</div>`;
       pagerEl.innerHTML = "";
       return;
     }
-    countEl.textContent = `（共 ${accounts.length} 个）`;
+    countEl.textContent = `(${i18n.t('total')} ${accounts.length})`;
 
     const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
     if (curPage > totalPages) curPage = totalPages;
@@ -1212,7 +1548,7 @@ function initPool(poolRoot) {
         return `<div class="pool-card${isCur ? " current" : ""}" data-email="${esc(a.email)}">
           <div class="pool-card-head">
             <span class="card-logo"><img src="/static/claude.svg" alt="Claude"></span>
-            <div class="acc-no">账号 #${no}${isCur ? ` <span class="curtag">当前</span>` : ""}</div>
+            <div class="acc-no">${i18n.t('account')} #${no}${isCur ? ` <span class="curtag">${i18n.t('statusActive')}</span>` : ""}</div>
             <div class="card-state">
               <span class="st ${esc(st)}"><span class="dot"></span>${esc(statusLabel[st] || st)}</span>
             </div>
@@ -1223,7 +1559,7 @@ function initPool(poolRoot) {
             </div>
           </div>
           <div class="pool-card-foot">
-            <span class="enter">进入使用 ${iconArrow}</span>
+            <span class="enter">${i18n.t('selectAccountDesc')} ${iconArrow}</span>
           </div>
         </div>`;
       })
@@ -1322,9 +1658,9 @@ function initPool(poolRoot) {
       await apiFetch("/pool/api/select?email=" + encodeURIComponent(email), {
         redirect: "manual",
       });
-      window.location.href = "/new";
+      window.open("/new", "_blank");
     } catch (e) {
-      if (e.message !== "unauthorized") alert("切换账号失败：" + e.message);
+      if (e.message !== "unauthorized") alert(i18n.t('switchAccountFailed') + ": " + e.message);
     }
   }
 
@@ -1340,7 +1676,7 @@ function initPool(poolRoot) {
     const card = e.target.closest(".pool-card");
     if (!card) return;
     const email = card.dataset.email;
-    if (email === current) window.location.href = "/new";
+    if (email === current) window.open("/new", "_blank");
     else selectAccount(email);
   });
 

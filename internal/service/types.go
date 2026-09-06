@@ -1,6 +1,15 @@
 package service
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"claude2api/internal/repository"
+)
+
+// Import types from repository to avoid duplication
+type SessionLimits = repository.SessionLimits
+type LimitWindow = repository.LimitWindow
+type ResolvedLimit = repository.ResolvedLimit  
+type Limit = repository.Limit
 
 // UserInfo 是账号信息。
 type UserInfo struct {
@@ -32,6 +41,7 @@ type SseEvent struct {
 	Error struct {
 		Message string `json:"message"`
 	} `json:"error"`
+	MessageLimit repository.SessionLimits `json:"message_limit"`
 }
 
 // Prompt 是协议适配层交给上游实现的输入。
