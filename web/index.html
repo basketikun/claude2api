@@ -12,6 +12,7 @@
         <div class="login-lang-switcher">
           <button id="login-lang-en" class="lang-btn" data-lang="en" title="English">EN</button>
           <button id="login-lang-zh" class="lang-btn" data-lang="zh" title="中文">中</button>
+          <button id="login-theme-toggle" class="theme-toggle-login" title="Toggle theme">🌙</button>
         </div>
         <div class="box">
           <a class="login-brand" href="/" aria-label="Claude2API 首页">
@@ -61,6 +62,7 @@
             <button id="btn-lang-en" class="lang-btn" data-lang="en" title="English">EN</button>
             <button id="btn-lang-zh" class="lang-btn" data-lang="zh" title="中文">中</button>
           </div>
+          <button id="btn-theme-toggle" class="theme-toggle" title="Toggle theme">🌙</button>
           <button id="btn-logout" class="nav-link nav-logout" data-i18n="logout">退出登录</button>
         </div>
       </aside>
@@ -68,6 +70,31 @@
         <div id="msg" class="msg hidden"></div>
         <section class="page hidden pool-page" id="page-pool">
           <div class="pool-wrap">
+            <!-- Current Account Session Info Banner -->
+            <div id="pool-account-banner" class="pool-account-banner hidden">
+              <div class="banner-header">
+                <div class="banner-title">
+                  <span class="banner-label">Current Account</span>
+                  <span class="banner-email" id="banner-email"></span>
+                </div>
+                <button id="banner-close" class="banner-close">×</button>
+              </div>
+              <div class="banner-stats">
+                <div class="banner-stat">
+                  <span class="stat-label">Session Used</span>
+                  <span class="stat-value" id="banner-usage">—</span>
+                </div>
+                <div class="banner-stat">
+                  <span class="stat-label">Resets In</span>
+                  <span class="stat-value" id="banner-reset">—</span>
+                </div>
+                <div class="banner-stat">
+                  <span class="stat-label">Status</span>
+                  <span class="stat-value" id="banner-status">—</span>
+                </div>
+              </div>
+            </div>
+            
             <div class="pool-top">
               <div class="pool-title">
                 <img src="/static/claude.svg" alt="Claude" class="logo" />

@@ -45,6 +45,7 @@ func NewMainEngine() *gin.Engine {
 	pool.Use(middleware.PoolAuth())
 	pool.GET("/api/list", handler.PoolList)
 	pool.GET("/api/select", handler.PoolSelect)
+	pool.POST("/api/refresh", handler.PoolRefreshCurrent)
 
 	// 2api 必须早于 NoRoute 反代。
 	api := r.Group("/v1")

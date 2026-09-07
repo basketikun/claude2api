@@ -9,8 +9,50 @@ function esc(s) {
 
 const AUTH_TOKEN_KEY = "claude2api_credential";
 const AUTH_ROLE_KEY = "claude2api_role";
+const THEME_KEY = "claude2api_theme";
 let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
 let authRole = localStorage.getItem(AUTH_ROLE_KEY) || "";
+
+// Theme Management
+function initTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+  updateThemeButton(theme);
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  applyTheme(newTheme);
+}
+
+function updateThemeButton(theme) {
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  const loginThemeBtn = document.getElementById('login-theme-toggle');
+  
+  const icon = theme === 'light' ? '🌙' : '☀️';
+  const title = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+  
+  if (themeBtn) {
+    themeBtn.innerHTML = `<span class="icon">${icon}</span><span>${theme === 'light' ? 'Dark' : 'Light'}</span>`;
+    themeBtn.title = title;
+  }
+  
+  if (loginThemeBtn) {
+    loginThemeBtn.textContent = icon;
+    loginThemeBtn.title = title;
+  }
+}
+
+// Initialize theme on page load
+initTheme();
 
 function saveAuth(token, role) {
   authToken = token;
@@ -1291,6 +1333,7 @@ $("#import-mask").addEventListener("click", (e) => {
 $("#btn-del-expired").addEventListener("click", deleteExpired);
 $("#btn-cfg-save").addEventListener("click", saveConfig);
 $("#btn-logout").addEventListener("click", logout);
+$("#btn-theme-toggle").addEventListener("click", toggleTheme);
 $("#btn-key-create").addEventListener("click", createKey);
 $("#btn-test-send").addEventListener("click", sendTestChat);
 $("#btn-chat-clear").addEventListener("click", () => {
@@ -1466,6 +1509,12 @@ function initLogin() {
       });
     });
   };
+  
+  // Setup theme toggle for login page
+  const loginThemeToggle = loginRoot.querySelector('#login-theme-toggle');
+  if (loginThemeToggle) {
+    loginThemeToggle.addEventListener('click', toggleTheme);
+  }
 
   const updateLoginText = () => {
     loginRoot.querySelector('h2').textContent = i18n.t('loginTitle');
@@ -1516,6 +1565,90 @@ function initPool(poolRoot) {
   let current = "";
   let curPage = 1;
   const pageSize = 24;
+  
+  // Banner elements
+  const banner = $pool("#pool-account-banner");
+  const bannerEmail = $pool("#banner-email");
+  const bannerUsage = $pool("#banner-usage");
+  const bannerReset = $pool("#banner-reset");
+  const bannerStatus = $pool("#banner-status");
+  const bannerClose = $pool("#banner-close");
+  
+  // Update banner with current account session info
+  function updateBanner() {
+    if (!current) {
+      banner.classList.add("hidden");
+      return;
+    }
+    
+    const account = accounts.find(a => a.email === current);
+    if (!account) {
+      banner.classList.add("hidden");
+      return;
+    }
+    
+    banner.classList.remove("hidden");
+    bannerEmail.textContent = account.email;
+    
+    // Update session usage
+    if (account.session_limits && account.session_limits.resolved && account.session_limits.resolved.limit) {
+      const limit = account.session_limits.resolved.limit;
+      const percent = limit.percent || 0;
+      
+      bannerUsage.textContent = `${percent}%`;
+      bannerUsage.className = 'stat-value';
+      if (percent >= 90) {
+        bannerUsage.classList.add('usage-high');
+      } else if (percent >= 70) {
+        bannerUsage.classList.add('usage-medium');
+      } else {
+        bannerUsage.classList.add('usage-low');
+      }
+      
+      // Update reset time
+      if (limit.resets_at) {
+        const resetDate = new Date(limit.resets_at);
+        const now = new Date();
+        const diff = resetDate - now;
+        
+        if (diff <= 0) {
+          bannerReset.textContent = i18n.t('reset');
+        } else {
+          bannerReset.textContent = formatCountdown(diff);
+        }
+      } else {
+        bannerReset.textContent = '—';
+      }
+      
+      // Update status
+      const status = account.status || 'unknown';
+      const statusText = {
+        active: i18n.t('statusActive'),
+        expired: i18n.t('statusExpired'),
+        error: i18n.t('statusError'),
+        unknown: i18n.t('statusUnknown'),
+      }[status] || status;
+      bannerStatus.textContent = statusText;
+    } else {
+      bannerUsage.textContent = '—';
+      bannerReset.textContent = '—';
+      bannerStatus.textContent = account.status || 'unknown';
+    }
+  }
+  
+  // Start banner countdown updater
+  let bannerInterval = null;
+  function startBannerUpdater() {
+    if (bannerInterval) clearInterval(bannerInterval);
+    bannerInterval = setInterval(updateBanner, 1000);
+  }
+  
+  function stopBannerUpdater() {
+    if (bannerInterval) {
+      clearInterval(bannerInterval);
+      bannerInterval = null;
+    }
+  }
 
   const statusLabel = {
     active: i18n.t('statusActive'),
@@ -1531,9 +1664,19 @@ function initPool(poolRoot) {
       countEl.textContent = "";
       listEl.innerHTML = `<div class="empty">${i18n.t('noAccounts')}</div>`;
       pagerEl.innerHTML = "";
+      banner.classList.add("hidden");
+      stopBannerUpdater();
       return;
     }
     countEl.textContent = `(${i18n.t('total')} ${accounts.length})`;
+    
+    // Update banner with current account info
+    updateBanner();
+    if (current) {
+      startBannerUpdater();
+    } else {
+      stopBannerUpdater();
+    }
 
     const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
     if (curPage > totalPages) curPage = totalPages;
@@ -1670,6 +1813,12 @@ function initPool(poolRoot) {
   keySubmit.addEventListener("click", submitKey);
   keyInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") submitKey();
+  });
+  
+  // Banner close button
+  bannerClose.addEventListener("click", () => {
+    banner.classList.add("hidden");
+    stopBannerUpdater();
   });
 
   listEl.addEventListener("click", (e) => {

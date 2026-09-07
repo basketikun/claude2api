@@ -38,3 +38,25 @@ func PoolSelect(c *gin.Context) {
 	}
 	c.Redirect(http.StatusFound, "/new")
 }
+
+// PoolRefreshCurrent refreshes and returns the current pool account's session limits
+func PoolRefreshCurrent(c *gin.Context) {
+	email, err := c.Cookie("pool_acct")
+	if err != nil || email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No pool account selected"})
+		return
+	}
+	
+	account, removed := service.RefreshAccount(email)
+	if removed {
+		c.JSON(http.StatusOK, gin.H{"removed": true, "message": "Account was removed"})
+		return
+	}
+	if account == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
+		return
+	}
+	
+	slog.Info("[号池] 刷新当前账号会话限制", "email", email)
+	c.JSON(http.StatusOK, gin.H{"account": service.PublicAccountView(account)})
+}
