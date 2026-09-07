@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
@@ -35,6 +37,62 @@ const (
 	authPrefix   = "/__auth/"
 	authAcctPath = "__acct/"
 )
+
+// sessionLimitCapturingReader wraps an io.ReadCloser to capture session limits from SSE streams
+type sessionLimitCapturingReader struct {
+	io.Reader
+	accountEmail string
+	buffer       []byte
+}
+
+func (r *sessionLimitCapturingReader) Read(p []byte) (n int, err error) {
+	n, err = r.Reader.Read(p)
+	if n > 0 && r.accountEmail != "" {
+		// Append to buffer for parsing
+		r.buffer = append(r.buffer, p[:n]...)
+		
+		// Try to parse for message_limit events
+		scanner := bufio.NewScanner(bytes.NewReader(r.buffer))
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "data: ") {
+				go r.parseSessionLimit(line[6:])
+			}
+		}
+		// Keep unprocessed data in buffer
+		if len(r.buffer) > 100000 { // Reset buffer if too large
+			r.buffer = r.buffer[len(r.buffer)-10000:]
+		}
+	}
+	return n, err
+}
+
+func (r *sessionLimitCapturingReader) Close() error {
+	if closer, ok := r.Reader.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
+func (r *sessionLimitCapturingReader) parseSessionLimit(data string) {
+	var ev struct {
+		Type         string                    `json:"type"`
+		MessageLimit repository.SessionLimits `json:"message_limit"`
+	}
+	
+	if err := json.Unmarshal([]byte(data), &ev); err != nil {
+		return
+	}
+	
+	if ev.Type == "message_limit" {
+		slog.Info("[Proxy] Captured message_limit event from web chat", "email", r.accountEmail)
+		if updated := repository.UpdateAccountSessionLimits(r.accountEmail, &ev.MessageLimit); updated {
+			slog.Info("[Proxy] Session limits updated successfully from web chat", "email", r.accountEmail)
+		} else {
+			slog.Warn("[Proxy] Failed to update session limits from web chat", "email", r.accountEmail)
+		}
+	}
+}
 
 // 转发到上游的请求头白名单。
 var forwardReqHeaders = map[string]bool{
@@ -188,6 +246,11 @@ func proxyModifyResponse(resp *http.Response) error {
 
 	if isStream {
 		resp.Header.Set("Cache-Control", "no-cache")
+		// Wrap the response body to capture session limits from event stream
+		resp.Body = &sessionLimitCapturingReader{
+			Reader:       resp.Body,
+			accountEmail: pc.email,
+		}
 		return nil
 	}
 
@@ -541,33 +604,150 @@ func injectPoolBar(data []byte, email string) []byte {
 		safeEmail = "—"
 	}
 
+	// Get account info for initial render
+	account := service.AccountByEmail(email)
+	sessionUsage := "—"
+	resetTime := "—"
+	statusText := "—"
+	
+	if account != nil && account.SessionLimits != nil && account.SessionLimits.Resolved != nil && account.SessionLimits.Resolved.Limit != nil {
+		limit := account.SessionLimits.Resolved.Limit
+		sessionUsage = fmt.Sprintf("%d%%", limit.Percent)
+		if limit.ResetsAt != "" {
+			resetTime = limit.ResetsAt
+		}
+		statusText = html.EscapeString(string(account.Status))
+	}
+
 	bar := `<div id="__pool_bar__" class="pb-card">` +
+		`<div class="pb-header">` +
 		`<span class="pb-acct" title="` + safeEmail + `">` +
-		`<span class="pb-label">账号</span>` +
+		`<span class="pb-label">Account</span>` +
 		`<b class="pb-email">` + safeEmail + `</b></span>` +
-		`<a class="pb-switch" href="/">切换账号</a>` +
+		`<a class="pb-switch" href="/">Switch</a>` +
+		`</div>` +
+		`<div class="pb-stats">` +
+		`<div class="pb-stat"><span class="pb-stat-label">Usage</span><span class="pb-stat-value" id="pb-usage">` + sessionUsage + `</span></div>` +
+		`<div class="pb-stat"><span class="pb-stat-label">Resets</span><span class="pb-stat-value" id="pb-reset">` + resetTime + `</span></div>` +
+		`<div class="pb-stat"><span class="pb-stat-label">Status</span><span class="pb-stat-value" id="pb-status">` + statusText + `</span></div>` +
+		`</div>` +
 		`</div>`
 
 	css := `<style>` +
 		`#__pool_bar__.pb-card{position:fixed;right:14px;top:14px;z-index:2147483647;` +
-		`display:flex;align-items:center;gap:9px;max-width:360px;box-sizing:border-box;` +
-		`padding:9px 11px;` +
+		`display:flex;flex-direction:column;gap:10px;max-width:420px;min-width:320px;box-sizing:border-box;` +
+		`padding:12px 14px;` +
 		`font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;` +
-		`color:#3d3a34;background:rgba(252,251,248,.92);` +
-		`-webkit-backdrop-filter:saturate(1.4) blur(10px);backdrop-filter:saturate(1.4) blur(10px);` +
+		`color:#3d3a34;background:rgba(252,251,248,.95);` +
+		`-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);` +
 		`border:1px solid #e7e3da;border-radius:12px;` +
-		`box-shadow:0 6px 24px -6px rgba(60,50,30,.18),0 1px 3px rgba(60,50,30,.08);` +
-		`animation:pbin .28s cubic-bezier(.2,.8,.3,1)}` +
-		`@keyframes pbin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}` +
-		`#__pool_bar__ .pb-acct{display:flex;align-items:baseline;gap:5px;min-width:0}` +
-		`#__pool_bar__ .pb-label{color:#9a968c;flex:none}` +
+		`box-shadow:0 8px 32px -8px rgba(60,50,30,.2),0 2px 6px rgba(60,50,30,.1);` +
+		`animation:pbin .3s cubic-bezier(.2,.8,.3,1)}` +
+		`@keyframes pbin{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}` +
+		`#__pool_bar__ .pb-header{display:flex;align-items:center;justify-content:space-between;gap:10px}` +
+		`#__pool_bar__ .pb-acct{display:flex;align-items:baseline;gap:5px;min-width:0;flex:1}` +
+		`#__pool_bar__ .pb-label{color:#9a968c;flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}` +
 		`#__pool_bar__ .pb-email{font-weight:600;color:#1f1e1c;white-space:nowrap;overflow:hidden;` +
-		`text-overflow:ellipsis;min-width:0}` +
+		`text-overflow:ellipsis;min-width:0;font-size:13px}` +
 		`#__pool_bar__ .pb-switch{flex:none;color:#c96442;font-weight:600;text-decoration:none;` +
-		`padding:3px 9px;border-radius:7px;transition:background .15s}` +
-		`#__pool_bar__ .pb-switch:hover{background:rgba(201,100,66,.1)}` +
+		`padding:4px 10px;border-radius:6px;transition:all .12s;font-size:11px;border:1px solid transparent}` +
+		`#__pool_bar__ .pb-switch:hover{background:rgba(201,100,66,.12);border-color:rgba(201,100,66,.3)}` +
+		`#__pool_bar__ .pb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;` +
+		`padding-top:10px;border-top:1px solid #eae6dd}` +
+		`#__pool_bar__ .pb-stat{display:flex;flex-direction:column;gap:3px}` +
+		`#__pool_bar__ .pb-stat-label{font-size:9px;font-weight:700;text-transform:uppercase;` +
+		`letter-spacing:0.06em;color:#9a968c}` +
+		`#__pool_bar__ .pb-stat-value{font-size:14px;font-weight:650;color:#1f1e1c}` +
+		`#__pool_bar__ .pb-stat-value.usage-high{color:#b4402f}` +
+		`#__pool_bar__ .pb-stat-value.usage-medium{color:#b7791f}` +
+		`#__pool_bar__ .pb-stat-value.usage-low{color:#3c7d47}` +
+		`@media (max-width:640px){#__pool_bar__.pb-card{right:10px;top:10px;max-width:calc(100vw - 20px);min-width:280px}}` +
 		`</style>`
 
-	text = strings.Replace(text, "</body>", css+bar+"</body>", 1)
+	script := `<script>` +
+		`(function(){` +
+		`console.log('[PoolBar] Real-time session monitor initialized');` +
+		`var currentEmail='` + safeEmail + `';` +
+		`var refreshing=false;` +
+		`var updateSessionInfo=function(account){` +
+		`if(!account||!account.session_limits)return;` +
+		`var limit=account.session_limits.resolved?.limit;` +
+		`if(!limit)return;` +
+		`console.log('[PoolBar] Updating to:',limit.percent+'%');` +
+		`var usageEl=document.getElementById('pb-usage');` +
+		`var resetEl=document.getElementById('pb-reset');` +
+		`var statusEl=document.getElementById('pb-status');` +
+		`if(usageEl){` +
+		`var percent=limit.percent||0;` +
+		`usageEl.textContent=percent+'%';` +
+		`usageEl.className='pb-stat-value';` +
+		`if(percent>=90)usageEl.classList.add('usage-high');` +
+		`else if(percent>=70)usageEl.classList.add('usage-medium');` +
+		`else usageEl.classList.add('usage-low');}` +
+		`if(resetEl&&limit.resets_at){` +
+		`resetEl.dataset.resetTime=limit.resets_at;` +
+		`updateResetTime();}` +
+		`if(statusEl&&account.status){` +
+		`statusEl.textContent=account.status;}};` +
+		`var updateResetTime=function(){` +
+		`var resetEl=document.getElementById('pb-reset');` +
+		`if(!resetEl||!resetEl.dataset.resetTime)return;` +
+		`var resetDate=new Date(resetEl.dataset.resetTime);` +
+		`var now=new Date();` +
+		`var diff=resetDate-now;` +
+		`if(diff<=0){resetEl.textContent='Reset';}` +
+		`else{` +
+		`var minutes=Math.floor(diff/60000);` +
+		`var hours=Math.floor(minutes/60);` +
+		`var days=Math.floor(hours/24);` +
+		`if(days>0)resetEl.textContent=days+'d '+(hours%24)+'h';` +
+		`else if(hours>0)resetEl.textContent=hours+'h '+(minutes%60)+'m';` +
+		`else if(minutes>0)resetEl.textContent=minutes+'m';` +
+		`else resetEl.textContent='<1m';}};` +
+		`var refreshSessionData=function(){` +
+		`if(refreshing)return;` +
+		`refreshing=true;` +
+		`console.log('[PoolBar] Refreshing session data...');` +
+		`fetch('/pool/api/refresh',{` +
+		`method:'POST',` +
+		`credentials:'include'` +
+		`}).then(function(r){` +
+		`if(!r.ok){console.error('[PoolBar] Refresh failed:',r.status);return;}` +
+		`return r.json();` +
+		`}).then(function(data){` +
+		`if(!data||!data.account)return;` +
+		`console.log('[PoolBar] Refresh complete, updating banner');` +
+		`updateSessionInfo(data.account);` +
+		`}).catch(function(e){` +
+		`console.error('[PoolBar] Refresh error:',e);` +
+		`}).finally(function(){` +
+		`setTimeout(function(){refreshing=false;},2000);` +
+		`});};` +
+		`var originalFetch=window.fetch;` +
+		`var messageCount=0;` +
+		`window.fetch=function(){` +
+		`var args=arguments;` +
+		`var url=typeof args[0]==='string'?args[0]:(args[0]&&args[0].url)||'';` +
+		`var method=(args[1]&&args[1].method)||'GET';` +
+		`var promise=originalFetch.apply(this,args);` +
+		`if(method==='POST'&&(url.includes('append_message')||url.includes('chat_conversations'))){` +
+		`messageCount++;` +
+		`console.log('[PoolBar] Message #'+messageCount+' detected');` +
+		`promise.then(function(response){` +
+		`if(response.ok){` +
+		`console.log('[PoolBar] Message completed, refreshing in 3s...');` +
+		`setTimeout(refreshSessionData,3000);}` +
+		`return response;` +
+		`});}` +
+		`return promise;};` +
+		`var resetEl=document.getElementById('pb-reset');` +
+		`if(resetEl&&resetEl.textContent&&resetEl.textContent.includes('202')){` +
+		`resetEl.dataset.resetTime=resetEl.textContent;` +
+		`updateResetTime();}` +
+		`setInterval(updateResetTime,1000);` +
+		`})();` +
+		`</script>`
+
+	text = strings.Replace(text, "</body>", css+bar+script+"</body>", 1)
 	return []byte(text)
 }

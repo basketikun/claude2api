@@ -39,7 +39,7 @@ func TestSendMessage(t *testing.T) {
 			t.Fatalf("CreateConversation 失败: %v", err)
 		}
 		var reply string
-		status, err := claudeAI.SendMessage(convID, "claude-sonnet-5", Prompt{Text: "只回复 OK"}, nil, nil, func(s string) { reply += s })
+		status, err := claudeAI.SendMessage(convID, "claude-sonnet-5", "test@example.com", Prompt{Text: "只回复 OK"}, nil, nil, func(s string) { reply += s })
 		if err != nil {
 			t.Fatalf("第 %d 次 SendMessage 失败: status=%d err=%v", i+1, status, err)
 		}
