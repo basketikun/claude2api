@@ -19,6 +19,23 @@ func (f testRunner) Complete(model string, prompt service.Prompt, emit func(stri
 	return f(model, prompt, emit)
 }
 
+func TestSupportedModelsIncludeClaude55(t *testing.T) {
+	want := map[string]bool{
+		"claude-haiku-5-5":  false,
+		"claude-sonnet-5-5": false,
+	}
+	for _, model := range supportedModels {
+		if _, ok := want[model]; ok {
+			want[model] = true
+		}
+	}
+	for model, found := range want {
+		if !found {
+			t.Errorf("supportedModels missing %q", model)
+		}
+	}
+}
+
 func TestAPIContracts(t *testing.T) {
 	old := runner
 	oldFetch := fetchImage

@@ -22,7 +22,13 @@ const (
 	defaultModel    = "claude-sonnet-4-6"
 )
 
-var supportedModels = []string{defaultModel, "claude-haiku-4-5-20251001", "claude-sonnet-5"}
+var supportedModels = []string{
+	defaultModel,
+	"claude-haiku-4-5-20251001",
+	"claude-sonnet-5",
+	"claude-haiku-5-5",
+	"claude-sonnet-5-5",
+}
 
 type Message struct {
 	Role       string

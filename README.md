@@ -86,6 +86,8 @@ sk-ant-sid01-yyyyyyyy
 - `claude-sonnet-4-6`
 - `claude-haiku-4-5-20251001`
 - `claude-sonnet-5`
+- `claude-haiku-5-5`
+- `claude-sonnet-5-5`
 
 实际可用性取决于账号权限和 Claude.ai 上游状态，请以 `GET /v1/models` 的返回结果为准。
 
