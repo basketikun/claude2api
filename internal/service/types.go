@@ -1,20 +1,48 @@
 package service
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"slices"
+
+	"claude2api/internal/repository"
+)
 
 // UserInfo 是账号信息。
 type UserInfo struct {
 	Email   string
 	OrgUUID string
+	Models  []repository.AccountModel
 }
 
 type ClaudeAccount struct {
 	EmailAddress string `json:"email_address"`
 	Memberships  []struct {
 		Organization struct {
-			UUID string `json:"uuid"`
+			UUID   string `json:"uuid"`
+			Models []struct {
+				ID           string   `json:"model"`
+				Name         string   `json:"name"`
+				Inactive     bool     `json:"inactive"`
+				PaprikaModes []string `json:"paprika_modes"`
+				HardLimit    int      `json:"hard_limit"`
+			} `json:"claude_ai_bootstrap_models_config"`
 		} `json:"organization"`
 	} `json:"memberships"`
+}
+
+func (account ClaudeAccount) UserInfo() *UserInfo {
+	info := &UserInfo{Email: account.EmailAddress, Models: []repository.AccountModel{}}
+	if len(account.Memberships) == 0 {
+		return info
+	}
+	organization := account.Memberships[0].Organization
+	info.OrgUUID = organization.UUID
+	for _, model := range organization.Models {
+		if !model.Inactive {
+			info.Models = append(info.Models, repository.AccountModel{ID: model.ID, Name: model.Name, Thinking: slices.Contains(model.PaprikaModes, "extended"), ContextWindow: model.HardLimit})
+		}
+	}
+	return info
 }
 
 // SseEvent 是 completion SSE 事件。

@@ -125,11 +125,8 @@ func (claudeAI *ClaudeAI) GetUserInfo() (*UserInfo, error) {
 		return nil, fmt.Errorf("解析账号信息失败: %w", err)
 	}
 
-	info := &UserInfo{Email: acct.EmailAddress}
-	if len(acct.Memberships) > 0 {
-		info.OrgUUID = acct.Memberships[0].Organization.UUID
-		claudeAI.orgUUID = info.OrgUUID
-	}
+	info := acct.UserInfo()
+	claudeAI.orgUUID = info.OrgUUID
 	return info, nil
 }
 

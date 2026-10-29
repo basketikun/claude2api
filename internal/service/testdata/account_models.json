@@ -1,0 +1,299 @@
+{
+  "memberships": [
+    {
+      "organization": {
+        "claude_ai_bootstrap_models_config": [
+          {
+            "model": "claude-fable-5-1",
+            "name": "Claude Fable 5.1",
+            "description": "For your toughest challenges",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-opus-5-5",
+            "name": "Claude Opus 5.5",
+            "description": "For complex work and everyday tasks",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-opus-4-5-20251101",
+            "name": "Claude Opus 4.5",
+            "inactive": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Think longer for complex tasks",
+                "id": "extended",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Extended",
+                "title": "Extended thinking"
+              }
+            ],
+            "hard_limit": 190000
+          },
+          {
+            "model": "claude-opus-4-1-20250805-claude-ai",
+            "name": "Opus 4.1",
+            "inactive": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Think longer for complex tasks",
+                "id": "extended",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Extended",
+                "title": "Extended thinking"
+              }
+            ],
+            "hard_limit": 190000
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "name": "Claude Sonnet 5.5",
+            "description": "Most efficient for simpler tasks",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-haiku-5-5",
+            "name": "Claude Haiku 5.5",
+            "description": "Fastest for quick answers",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-fable-5",
+            "name": "Claude Fable 5",
+            "overflow": true,
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 449000
+          },
+          {
+            "model": "claude-opus-5",
+            "name": "Claude Opus 5",
+            "overflow": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-opus-4-8",
+            "name": "Claude Opus 4.8",
+            "overflow": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-opus-4-7",
+            "name": "Claude Opus 4.7",
+            "overflow": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 449000
+          },
+          {
+            "model": "claude-opus-4-6",
+            "name": "Claude Opus 4.6",
+            "overflow": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Think longer for complex tasks",
+                "id": "extended",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Extended",
+                "title": "Extended thinking"
+              }
+            ],
+            "hard_limit": 449000
+          },
+          {
+            "model": "claude-3-opus-20240229",
+            "name": "Claude Opus 3",
+            "overflow": true,
+            "notice_text": "Opus consumes usage limits faster than other models",
+            "paprika_modes": [],
+            "thinking_modes": [],
+            "knowledgeCutoff": "August 2023",
+            "capabilities": {
+              "mm_pdf": false,
+              "mm_images": false,
+              "web_search": false,
+              "gsuite_tools": false,
+              "compass": false
+            },
+            "hard_limit": 190000
+          },
+          {
+            "model": "claude-sonnet-5",
+            "name": "Claude Sonnet 5",
+            "overflow": true,
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 950000
+          },
+          {
+            "model": "claude-sonnet-4-6",
+            "name": "Claude Sonnet 4.6",
+            "overflow": true,
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Can think for more complex tasks",
+                "id": "auto",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Thinking",
+                "title": "Thinking"
+              }
+            ],
+            "hard_limit": 449000
+          },
+          {
+            "model": "claude-haiku-4-5-20251001",
+            "name": "Claude Haiku 4.5",
+            "overflow": true,
+            "paprika_modes": [
+              "extended"
+            ],
+            "thinking_modes": [
+              {
+                "description": "Think longer for complex tasks",
+                "id": "extended",
+                "mode": "extended",
+                "paprika_mode_value": "extended",
+                "selection_title": "Extended",
+                "title": "Extended thinking"
+              }
+            ],
+            "hard_limit": 190000
+          }
+        ]
+      }
+    }
+  ]
+}

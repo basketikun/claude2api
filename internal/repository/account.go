@@ -8,15 +8,24 @@ import (
 
 // Account 是一条账号记录。
 type Account struct {
-	ID             uint              `json:"-" gorm:"primaryKey"`
-	Email          string            `json:"email" gorm:"uniqueIndex;not null"`
-	OrgUUID        string            `json:"org_uuid" gorm:"column:org_uuid"`
-	Cookies        map[string]string `json:"-" gorm:"serializer:json"`
-	Status         string            `json:"status,omitempty"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
-	Usage          *AccountUsage     `json:"usage" gorm:"serializer:json;type:text"`
-	UsageUpdatedAt *time.Time        `json:"usage_updated_at"`
+	ID              uint              `json:"-" gorm:"primaryKey"`
+	Email           string            `json:"email" gorm:"uniqueIndex;not null"`
+	OrgUUID         string            `json:"org_uuid" gorm:"column:org_uuid"`
+	Cookies         map[string]string `json:"-" gorm:"serializer:json"`
+	Status          string            `json:"status,omitempty"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	Usage           *AccountUsage     `json:"usage" gorm:"serializer:json;type:text"`
+	UsageUpdatedAt  *time.Time        `json:"usage_updated_at"`
+	Models          []AccountModel    `json:"models" gorm:"serializer:json;type:text"`
+	ModelsUpdatedAt *time.Time        `json:"models_updated_at"`
+}
+
+type AccountModel struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Thinking      bool   `json:"thinking"`
+	ContextWindow int    `json:"context_window"`
 }
 
 // AccountUsage 保存最近一次对话返回的额度窗口。
@@ -55,7 +64,7 @@ func AccountByEmail(email string) *Account {
 func UpsertAccount(a *Account) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "email"}},
-		DoUpdates: clause.AssignmentColumns([]string{"org_uuid", "cookies", "status", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"org_uuid", "cookies", "status", "updated_at", "models", "models_updated_at"}),
 	}).Create(a).Error
 }
 

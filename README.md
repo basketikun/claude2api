@@ -95,15 +95,11 @@ sk-ant-sid01-yyyyyyyy
 
 ### 支持的模型
 
-当前服务暴露以下基础模型，并同时提供对应的 `-thinking` 版本：
+`GET /v1/models` 汇总可用账号最近查询到的模型，不再使用固定名单。来源是 Claude.ai `GET /api/account` 的 `memberships[].organization.claude_ai_bootstrap_models_config`：过滤 `inactive: true`，仅为 `paprika_modes` 包含 `extended` 的模型提供 `-thinking` 版本。字段依据 2026-10-29 捕获的[真实模型配置](internal/service/testdata/account_models.json)。
 
-- `claude-sonnet-4-6`
-- `claude-haiku-4-5-20251001`
-- `claude-sonnet-5`
-- `claude-haiku-5-5`
-- `claude-sonnet-5-5`
+导入账号、手动刷新账号和定期巡检都会更新模型记录。升级后先刷新已有账号；没有模型记录时返回空列表，不使用旧名单兜底。调用按模型选择对应账号，实际可用性仍取决于账号权限及当前限制。
 
-实际可用性取决于账号权限和 Claude.ai 上游状态，请以 `GET /v1/models` 的返回结果为准。
+已有数据库的模型字段迁移为 `migrations/20261029_add_account_models.sql`；启动时 AutoMigrate 也会补齐字段，两种方式选择一种，不能重复执行 SQL。
 
 <details>
 <summary><code>GET /v1/models</code></summary>

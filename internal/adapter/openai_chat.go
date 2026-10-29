@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"claude2api/internal/repository"
 	"claude2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -14,11 +15,22 @@ import (
 func ListModels(c *gin.Context) {
 	now := time.Now().Unix()
 	data := make([]gin.H, 0)
-	for _, id := range supportedModels {
-		for _, model := range []string{id, id + "-thinking"} {
-			data = append(data, gin.H{
-				"id": model, "object": "model", "created": now, "owned_by": "anthropic",
-			})
+	seen := map[string]bool{}
+	for _, account := range repository.LoadAccounts() {
+		if !service.AccountUsable(&account) {
+			continue
+		}
+		for _, model := range account.Models {
+			ids := []string{model.ID}
+			if model.Thinking {
+				ids = append(ids, model.ID+"-thinking")
+			}
+			for _, id := range ids {
+				if !seen[id] {
+					seen[id] = true
+					data = append(data, gin.H{"id": id, "object": "model", "created": now, "owned_by": "anthropic", "name": model.Name, "context_window": model.ContextWindow})
+				}
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"object": "list", "data": data})

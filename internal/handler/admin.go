@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"claude2api/internal/config"
 	"claude2api/internal/repository"
@@ -95,7 +96,8 @@ func importAccounts(items []string) <-chan importResult {
 					results <- importResult{err: message}
 					return
 				}
-				if err := repository.UpsertAccount(&repository.Account{Email: info.Email, OrgUUID: info.OrgUUID, Cookies: map[string]string{"sessionKey": key}, Status: "active"}); err != nil {
+				now := time.Now().UTC()
+				if err := repository.UpsertAccount(&repository.Account{Email: info.Email, OrgUUID: info.OrgUUID, Cookies: map[string]string{"sessionKey": key}, Status: "active", Models: info.Models, ModelsUpdatedAt: &now}); err != nil {
 					slog.Warn("[导入] 保存账号失败", "email", info.Email, "err", err)
 					results <- importResult{email: info.Email, err: "保存账号失败"}
 					return

@@ -1,0 +1,4 @@
+BEGIN IMMEDIATE;
+ALTER TABLE accounts ADD COLUMN models TEXT;
+ALTER TABLE accounts ADD COLUMN models_updated_at DATETIME;
+COMMIT;

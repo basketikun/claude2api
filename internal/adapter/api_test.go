@@ -19,23 +19,6 @@ func (f testRunner) Complete(model string, prompt service.Prompt, emit func(stri
 	return f(model, prompt, emit)
 }
 
-func TestSupportedModelsIncludeClaude55(t *testing.T) {
-	want := map[string]bool{
-		"claude-haiku-5-5":  false,
-		"claude-sonnet-5-5": false,
-	}
-	for _, model := range supportedModels {
-		if _, ok := want[model]; ok {
-			want[model] = true
-		}
-	}
-	for model, found := range want {
-		if !found {
-			t.Errorf("supportedModels missing %q", model)
-		}
-	}
-}
-
 func TestAPIContracts(t *testing.T) {
 	old := runner
 	oldFetch := fetchImage
@@ -64,7 +47,6 @@ func TestAPIContracts(t *testing.T) {
 		name, method, body, want string
 		handler                  gin.HandlerFunc
 	}{
-		{"models", "GET", "", "claude-sonnet-4-6", ListModels},
 		{"chat single", "POST", `{"messages":[{"role":"user","content":"hi"}]}`, `"chat.completion"`, OpenAIChat},
 		{"chat multi image stream", "POST", `{"stream":true,"messages":[{"role":"user","content":"first"},{"role":"assistant","content":"answer"},{"role":"user","content":[{"type":"text","text":"image"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}}]}]}`, "data: [DONE]", OpenAIChat},
 		{"chat image url", "POST", `{"messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.com/image.png"}}]}]}`, `"chat.completion"`, OpenAIChat},
