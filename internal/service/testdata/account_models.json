@@ -2,6 +2,7 @@
   "memberships": [
     {
       "organization": {
+        "analytics_subscription_plan": "claude_free",
         "claude_ai_bootstrap_models_config": [
           {
             "model": "claude-fable-5-1",

@@ -110,11 +110,11 @@ sk-ant-sid01-yyyyyyyy
 
 ### 支持的模型
 
-`GET /v1/models` 汇总可用账号最近查询到的模型，不再使用固定名单。来源是 Claude.ai `GET /api/account` 的 `memberships[].organization.claude_ai_bootstrap_models_config`：过滤 `inactive: true`，仅为 `paprika_modes` 包含 `extended` 的模型提供 `-thinking` 版本。字段依据 2026-10-29 捕获的[真实模型配置](internal/service/testdata/account_models.json)。
+`GET /v1/models` 汇总可用账号当前套餐支持的模型。Claude.ai `GET /api/account` 的 `memberships[].organization.claude_ai_bootstrap_models_config` 是通用目录，不能直接当成账号权限：过滤 `inactive: true` 后，还需结合 `analytics_subscription_plan` 筛选。Free 仅保留 Sonnet、Haiku，Opus、Fable 属于付费套餐，依据 [Claude 官方套餐说明](https://academy.claude.com/tutorials/choosing-the-right-claude-model)。仅为 `paprika_modes` 包含 `extended` 的模型提供 `-thinking` 版本。字段依据 2026-10-29 捕获的 [Free 账号真实响应](internal/service/testdata/account_models.json)。
 
-导入账号、手动刷新账号和定期巡检都会更新模型记录。升级后先刷新已有账号；没有模型记录时返回空列表，不使用旧名单兜底。调用按模型选择对应账号，实际可用性仍取决于账号权限及当前限制。
+导入账号、手动刷新账号和定期巡检都会同步套餐和模型目录。升级后先刷新已有账号；没有套餐或模型记录时返回空列表，不使用旧名单兜底。账号页、在线测试、`/v1/models` 和账号调度共用套餐筛选规则；实际调用仍受账号当前额度及组织权限限制。
 
-已有数据库的模型字段迁移为 `migrations/20261029_add_account_models.sql`；启动时 AutoMigrate 也会补齐字段，两种方式选择一种，不能重复执行 SQL。
+已有数据库的模型字段迁移为 `migrations/20261029_add_account_models.sql`，套餐字段迁移为 `migrations/20261029_add_account_plan.sql`；启动时 AutoMigrate 也会补齐字段，两种方式选择一种，不能重复执行 SQL。
 
 <details>
 <summary><code>GET /v1/models</code></summary>

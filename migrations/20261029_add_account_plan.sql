@@ -1,0 +1,3 @@
+BEGIN IMMEDIATE;
+ALTER TABLE accounts ADD COLUMN subscription_plan TEXT;
+COMMIT;

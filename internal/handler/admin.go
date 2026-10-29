@@ -97,7 +97,7 @@ func importAccounts(items []string) <-chan importResult {
 					return
 				}
 				now := time.Now().UTC()
-				if err := repository.UpsertAccount(&repository.Account{Email: info.Email, OrgUUID: info.OrgUUID, Cookies: map[string]string{"sessionKey": key}, Status: "active", Models: info.Models, ModelsUpdatedAt: &now}); err != nil {
+				if err := repository.UpsertAccount(&repository.Account{Email: info.Email, OrgUUID: info.OrgUUID, Cookies: map[string]string{"sessionKey": key}, Status: "active", SubscriptionPlan: info.SubscriptionPlan, Models: info.Models, ModelsUpdatedAt: &now}); err != nil {
 					slog.Warn("[导入] 保存账号失败", "email", info.Email, "err", err)
 					results <- importResult{email: info.Email, err: "保存账号失败"}
 					return

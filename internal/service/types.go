@@ -9,17 +9,19 @@ import (
 
 // UserInfo 是账号信息。
 type UserInfo struct {
-	Email   string
-	OrgUUID string
-	Models  []repository.AccountModel
+	Email            string
+	OrgUUID          string
+	SubscriptionPlan string
+	Models           []repository.AccountModel
 }
 
 type ClaudeAccount struct {
 	EmailAddress string `json:"email_address"`
 	Memberships  []struct {
 		Organization struct {
-			UUID   string `json:"uuid"`
-			Models []struct {
+			UUID             string `json:"uuid"`
+			SubscriptionPlan string `json:"analytics_subscription_plan"`
+			Models           []struct {
 				ID           string   `json:"model"`
 				Name         string   `json:"name"`
 				Inactive     bool     `json:"inactive"`
@@ -37,6 +39,7 @@ func (account ClaudeAccount) UserInfo() *UserInfo {
 	}
 	organization := account.Memberships[0].Organization
 	info.OrgUUID = organization.UUID
+	info.SubscriptionPlan = organization.SubscriptionPlan
 	for _, model := range organization.Models {
 		if !model.Inactive {
 			info.Models = append(info.Models, repository.AccountModel{ID: model.ID, Name: model.Name, Thinking: slices.Contains(model.PaprikaModes, "extended"), ContextWindow: model.HardLimit})

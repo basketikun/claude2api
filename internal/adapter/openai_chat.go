@@ -21,7 +21,7 @@ func ListModels(c *gin.Context) {
 		if !service.AccountUsable(&account) {
 			continue
 		}
-		for _, model := range account.Models {
+		for _, model := range service.AccountModels(&account) {
 			ids := []string{model.ID}
 			if model.Thinking {
 				ids = append(ids, model.ID+"-thinking")

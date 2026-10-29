@@ -341,7 +341,7 @@ async function loadAccountModels() {
               `<button type="button" class="model-pill" data-model="${esc(name)}">${esc(name)}</button>`,
           )
           .join("")
-      : '<span class="model-empty">暂无模型记录，请先刷新账号</span>';
+      : '<span class="model-empty">暂无套餐可用模型，请先刷新账号</span>';
   } catch (e) {
     box.innerHTML = `<span class="model-error">加载失败：${esc(e.message)}</span>`;
   }
@@ -484,7 +484,7 @@ async function openDetail(email) {
       ] || a.status,
     ],
     ["组织 UUID", a.org_uuid || "—"],
-    ["可用模型", a.models?.length ? a.models.map((model) => model.id).join("、") : "请刷新账号"],
+    ["套餐可用模型", a.models?.length ? a.models.map((model) => model.id).join("、") : "请刷新账号"],
     ["模型记录时间", a.models_updated_at ? fmtTime(a.models_updated_at) : "暂无记录"],
     ["5 小时用量", usageWindowText(a, "5h")],
     ["7 天用量", usageWindowText(a, "7d")],
