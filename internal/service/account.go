@@ -11,12 +11,14 @@ import (
 
 // PublicAccount 是前端账号视图。
 type PublicAccount struct {
-	Email      string    `json:"email"`
-	OrgUUID    string    `json:"org_uuid"`
-	Status     string    `json:"status,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	HasSession bool      `json:"has_session"`
+	Email          string                   `json:"email"`
+	OrgUUID        string                   `json:"org_uuid"`
+	Status         string                   `json:"status,omitempty"`
+	CreatedAt      time.Time                `json:"created_at"`
+	UpdatedAt      time.Time                `json:"updated_at"`
+	HasSession     bool                     `json:"has_session"`
+	Usage          *repository.AccountUsage `json:"usage"`
+	UsageUpdatedAt *time.Time               `json:"usage_updated_at"`
 }
 
 func SessionKey(account *repository.Account) string {
@@ -43,12 +45,14 @@ func PublicAccountView(account *repository.Account) *PublicAccount {
 		return nil
 	}
 	return &PublicAccount{
-		Email:      account.Email,
-		OrgUUID:    account.OrgUUID,
-		Status:     account.Status,
-		CreatedAt:  account.CreatedAt,
-		UpdatedAt:  account.UpdatedAt,
-		HasSession: SessionKey(account) != "",
+		Email:          account.Email,
+		OrgUUID:        account.OrgUUID,
+		Status:         account.Status,
+		CreatedAt:      account.CreatedAt,
+		UpdatedAt:      account.UpdatedAt,
+		HasSession:     SessionKey(account) != "",
+		Usage:          account.Usage,
+		UsageUpdatedAt: account.UsageUpdatedAt,
 	}
 }
 

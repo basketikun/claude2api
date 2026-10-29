@@ -456,6 +456,17 @@ body {
   font-size: 12px;
   font-weight: 600;
 }
+.usage-window {
+  white-space: pre-line;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.pool-usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 10px;
+}
 .pill-ok {
   color: var(--ok);
 }

@@ -7,6 +7,20 @@ function esc(s) {
   );
 }
 
+function usageWindowText(account, key) {
+  const window = account.usage?.windows[key];
+  if (!window) return "暂无记录";
+  const percent = new Intl.NumberFormat("zh-CN", {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(window.utilization);
+  const reset = new Date(window.resets_at * 1000);
+  const time = reset.toLocaleString("zh-CN", {
+    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+  return `已用 ${percent}\n${time} 重置${Date.now() >= reset.getTime() ? "\n已到重置时间，待更新" : ""}`;
+}
+
 const AUTH_TOKEN_KEY = "claude2api_credential";
 const AUTH_ROLE_KEY = "claude2api_role";
 let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -217,12 +231,12 @@ function renderTable() {
   const rows = filteredAccounts();
 
   if (!ACCOUNTS.length) {
-    body.innerHTML = `<tr><td colspan="7" class="empty">暂无账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty">暂无账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="7" class="empty">没有符合条件的账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty">没有符合条件的账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
@@ -237,6 +251,8 @@ function renderTable() {
       <td>${start + i + 1}</td>
       <td class="mono">${esc(a.email)}</td>
       <td>${statusBadge(a.status)}</td>
+      <td class="usage-window" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${esc(usageWindowText(a, "5h"))}</td>
+      <td class="usage-window" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${esc(usageWindowText(a, "7d"))}</td>
       <td class="mono">${esc(fmtTime(a.created_at) || "—")}</td>
       <td>${esc(fmtSurvived(a.created_at))}</td>
       <td class="mono">${esc(fmtTime(a.updated_at) || "—")}</td>
@@ -468,6 +484,9 @@ function openDetail(email) {
       ] || a.status,
     ],
     ["组织 UUID", a.org_uuid || "—"],
+    ["5 小时用量", usageWindowText(a, "5h")],
+    ["7 天用量", usageWindowText(a, "7d")],
+    ["用量记录时间", a.usage_updated_at ? fmtTime(a.usage_updated_at) : "暂无记录"],
     ["创建时间", fmtTime(a.created_at) || "—"],
     ["已存活", fmtSurvived(a.created_at)],
     ["更新时间", fmtTime(a.updated_at) || "—"],
@@ -476,7 +495,7 @@ function openDetail(email) {
   const info = rows
     .map(
       ([k, v]) =>
-        `<div class="dl-row"><span class="dl-key">${esc(k)}</span><span class="dl-val mono">${esc(v)}</span></div>`,
+        `<div class="dl-row"><span class="dl-key">${esc(k)}</span><span class="dl-val mono usage-window">${esc(v)}</span></div>`,
     )
     .join("");
 
@@ -1221,6 +1240,11 @@ function initPool(poolRoot) {
             <div class="meta">
               <span class="pool-email">${esc(a.email)}</span>
             </div>
+            <div class="pool-usage">
+              <div class="usage-window"><strong>5 小时</strong>\n${esc(usageWindowText(a, "5h"))}</div>
+              <div class="usage-window"><strong>7 天</strong>\n${esc(usageWindowText(a, "7d"))}</div>
+            </div>
+            ${a.usage_updated_at ? `<div class="meta">记录于 ${esc(new Date(a.usage_updated_at).toLocaleString("zh-CN", { hour12: false }))}</div>` : ""}
           </div>
           <div class="pool-card-foot">
             <span class="enter">进入使用 ${iconArrow}</span>

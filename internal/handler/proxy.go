@@ -188,6 +188,9 @@ func proxyModifyResponse(resp *http.Response) error {
 
 	if isStream {
 		resp.Header.Set("Cache-Control", "no-cache")
+		if pc.onMain && resp.Request.Method == http.MethodPost && strings.HasPrefix(resp.Request.URL.Path, "/api/organizations/") && strings.HasSuffix(resp.Request.URL.Path, "/completion") {
+			resp.Body = service.CaptureAccountUsage(resp.Body, pc.email)
+		}
 		return nil
 	}
 

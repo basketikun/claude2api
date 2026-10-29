@@ -1,0 +1,4 @@
+BEGIN IMMEDIATE;
+ALTER TABLE accounts ADD COLUMN usage TEXT;
+ALTER TABLE accounts ADD COLUMN usage_updated_at DATETIME;
+COMMIT;

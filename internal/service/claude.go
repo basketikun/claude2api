@@ -317,7 +317,7 @@ func (claudeAI *ClaudeAI) CreateConversation(model string, think bool) (string, 
 }
 
 // SendMessage 发送提示词。
-func (claudeAI *ClaudeAI) SendMessage(convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, error) {
+func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, error) {
 	// 固定字段对齐网页端请求。
 	body := map[string]any{
 		"prompt": prompt.Text,
@@ -384,7 +384,7 @@ func (claudeAI *ClaudeAI) SendMessage(convID, model string, prompt Prompt, attac
 	if err != nil {
 		return 500, fmt.Errorf("发送消息失败: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { resp.Body.Close() }()
 
 	if resp.StatusCode == fhttp.StatusTooManyRequests {
 		body, _ := io.ReadAll(resp.Body)
@@ -401,6 +401,7 @@ func (claudeAI *ClaudeAI) SendMessage(convID, model string, prompt Prompt, attac
 		}
 		return resp.StatusCode, fmt.Errorf("发送消息 HTTP %d: %s", resp.StatusCode, bodyText)
 	}
+	resp.Body = CaptureAccountUsage(resp.Body, email)
 	return 200, parseCompletionSSE(resp.Body, onText)
 }
 

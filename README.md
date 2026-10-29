@@ -47,6 +47,20 @@ docker compose up -d
 - **日志详情**：可选保存完整请求与响应内容，支持查看详情、批量删除及仅保留最近指定数量的日志。
 - **运行时配置**：可在后台调整出口代理、重试次数、长上下文阈值、会话清理、账号巡检和详细日志等设置。
 
+## 账号用量
+
+账号列表、详情和号池卡片显示最近记录的 5 小时、7 天已用比例及重置时间，时间按浏览器所在时区展示。数据来自对话的 `message_limit` 事件，通过本服务的 API 或官网镜像发送对话时采集，不额外发送消息查询额度。刷新列表只能读取最近记录；从未收到用量事件时显示“暂无记录”，超过重置时间后保留原值并提示待更新。
+
+字段依据 2026-10-29 用户从 `POST /api/organizations/{组织}/chat_conversations/{会话}/completion` 捕获的[真实响应](internal/service/testdata/message_limit.json)：读取 `message_limit.windows` 中的 `utilization`（0.16 表示已用 16%）和 `resets_at`（Unix 秒）。这份响应的顶层 `resetsAt` 为 `null`，不用于重置时间展示。
+
+已有数据库可在升级启动前执行一次迁移：
+
+```bash
+sqlite3 data/app.db < migrations/20261029_add_account_usage.sql
+```
+
+启动时的 AutoMigrate 也会补齐这两个字段；已由启动补齐的数据库不要重复执行 SQL。迁移脚本保留到确认线上升级完成。
+
 ## 效果展示
 
 <table width="100%">
