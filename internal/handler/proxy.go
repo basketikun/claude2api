@@ -549,7 +549,7 @@ func injectPoolBar(data []byte, email string) []byte {
 		`</div>`
 
 	css := `<style>` +
-		`#__pool_bar__.pb-card{position:fixed;right:14px;top:14px;z-index:2147483647;` +
+		`#__pool_bar__.pb-card{position:fixed;right:14px;top:120px;z-index:2147483647;` +
 		`display:flex;align-items:center;gap:9px;max-width:360px;box-sizing:border-box;` +
 		`padding:9px 11px;` +
 		`font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;` +
