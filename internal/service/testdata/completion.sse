@@ -1,0 +1,39 @@
+event: ping
+data: {"type":"ping"}
+
+event: ping
+data: {"type":"ping"          }
+
+event: ping
+data: {"type":"ping"       }
+
+event: ping
+data: {"type":"ping" }
+
+event: message_start
+data: {"type":"message_start","message":{"id":"chatcompl_011CgWV4j6ccdcR93UFdTX3o","type":"message","role":"assistant","model":"claude-sonnet-4-6","parent_uuid":"01a18783-8ed6-7a43-a534-14c2a7db4d4e","uuid":"01a18783-8ed6-7a48-bd9f-4cd5bfc85620","content":[],"stop_reason":null,"stop_sequence":null,"stop_details":null,"trace_id":"9a419e075ae99fc7ce546c35d6936f89","request_id":"req_011CgWV4ik2oefkN34VU5no3"},"discarded_parent_message_uuid":null}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":"","citations":[],"start_timestamp":"2026-10-29T11:55:08.756262871Z","stop_timestamp":null,"flags":null} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"17 ×"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" 23 = **"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"391**"}            }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0,"stop_timestamp":"2026-10-29T11:55:08.900864016Z"         }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null}}
+
+event: message_limit
+data: {"type":"message_limit","message_limit":{"type":"within_limit","resetsAt":null,"remaining":null,"perModelLimit":null,"representativeClaim":"five_hour","overageDisabledReason":"overage_not_provisioned","overageInUse":false,"windows":{"5h":{"status":"within_limit","resets_at":1793289000,"utilization":0.02},"7d":{"status":"within_limit","resets_at":1793541600,"utilization":0.0}},"resolved":{"status":"ok","limit":{"kind":"session","group":"session","percent":2,"severity":"normal","resets_at":"2026-10-29T15:50:00+00:00","scope":null,"is_active":true},"spend":null,"disabled_reason":"overage_not_provisioned","notice":null}}               }
+
+event: message_stop
+data: {"type":"message_stop"}
+

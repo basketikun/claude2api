@@ -37,6 +37,7 @@ func NewMainEngine() *gin.Engine {
 	admin.POST("/keys/delete", handler.AdminDeleteKey)
 
 	admin.GET("/logs", handler.AdminListLogs)
+	admin.GET("/usage", handler.AdminUsage)
 	admin.GET("/logs/:id", handler.AdminGetLog)
 	admin.POST("/logs/delete", handler.AdminDeleteLogs)
 

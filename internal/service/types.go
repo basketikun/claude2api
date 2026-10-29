@@ -77,6 +77,7 @@ type Prompt struct {
 type CompletionResult struct {
 	Account    string
 	StatusCode int
+	Usage      *repository.UsageRecord
 }
 
 type CompletionError struct {

@@ -159,8 +159,8 @@ func (Dispatcher) Complete(reqModel string, prompt Prompt, onText func(string)) 
 		}
 
 		prompt.Text = promptText
-		code, err := client.SendMessage(email, convID, model, prompt, attachments, files, wrappedOnText)
-		res.StatusCode = code
+		code, usage, err := client.SendMessage(email, convID, model, prompt, attachments, files, wrappedOnText)
+		res.StatusCode, res.Usage = code, usage
 		if code == 429 {
 			lease.ready = false
 		}

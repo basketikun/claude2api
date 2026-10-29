@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"claude2api/internal/config"
 	"claude2api/internal/repository"
 	"claude2api/internal/service"
+	"claude2api/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -150,26 +152,38 @@ func runNonStream(c *gin.Context, endpoint, model string, prompt service.Prompt)
 
 func logCompletion(endpoint, model string, stream bool, prompt service.Prompt, output string, res service.CompletionResult, err error, start time.Time, firstTokenMs int64) {
 	durationMs := time.Since(start).Milliseconds()
-	outputTokens := tokenCount(output)
+	record := repository.UsageRecord{Account: res.Account, Model: model}
+	if res.Usage != nil {
+		record = *res.Usage
+	}
+	record.CreatedAt, record.Endpoint = start.UTC(), endpoint
+	record.Success = err == nil && res.Usage != nil && res.Usage.Success
+	record.DurationMs, record.FirstTokenMs = durationMs, firstTokenMs
+	if saveErr := repository.InsertUsage(record); saveErr != nil {
+		slog.Error("[用量统计] 保存调用用量失败", "account", res.Account, "err", saveErr)
+	}
+	outputTokens := record.OutputTokens + record.ThinkingTokens
 	log := repository.APILog{
 		Endpoint: endpoint, Model: model, Account: res.Account, Stream: stream,
-		Success: err == nil, StatusCode: res.StatusCode,
-		InputTokens: tokenCount(prompt.Text), OutputTokens: outputTokens,
+		Success: record.Success, StatusCode: res.StatusCode,
+		InputTokens: record.InputTokens, OutputTokens: record.OutputTokens, ThinkingTokens: &record.ThinkingTokens,
 		DurationMs: durationMs, FirstTokenMs: firstTokenMs,
 	}
 	if generationMs := durationMs - firstTokenMs; generationMs > 0 {
 		log.TPS = float64(outputTokens) * 1000 / float64(generationMs)
 	}
 	if config.Get().DetailedAPILog {
-		log.Request, log.Response = prompt.RawRequest, output
+		request, logErr := utils.RequestLog(prompt.RawRequest)
+		if logErr != nil {
+			slog.Error("[调用日志] 请求脱敏失败", "err", logErr)
+		}
+		log.Request, log.Response = request, utils.RedactMedia(output).(string)
 	}
 	if err != nil {
-		log.Error = err.Error()
+		log.Error = utils.RedactMedia(err.Error()).(string)
 	}
 	repository.InsertAPILog(log)
 }
-
-func tokenCount(s string) int { return len(s) / 4 }
 
 type outputFilter struct {
 	stop              []string

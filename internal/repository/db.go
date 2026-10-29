@@ -14,6 +14,14 @@ import (
 
 var db *gorm.DB
 
+func CloseDB() error {
+	connection, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return connection.Close()
+}
+
 // InitDB 初始化数据库。
 func InitDB() error {
 	if err := os.MkdirAll(config.DataDir(), 0o755); err != nil {
@@ -29,7 +37,7 @@ func InitDB() error {
 	if sqlDB, err := conn.DB(); err == nil {
 		sqlDB.SetMaxOpenConns(1)
 	}
-	if err := conn.AutoMigrate(&Account{}, &APIKey{}, &APILog{}); err != nil {
+	if err := conn.AutoMigrate(&Account{}, &APIKey{}, &APILog{}, &UsageRecord{}); err != nil {
 		return fmt.Errorf("建表失败: %w", err)
 	}
 	db = conn

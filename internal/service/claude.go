@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"claude2api/internal/repository"
 	"claude2api/internal/utils"
 
 	fhttp "github.com/bogdanfinn/fhttp"
@@ -314,7 +315,12 @@ func (claudeAI *ClaudeAI) CreateConversation(model string, think bool) (string, 
 }
 
 // SendMessage 发送提示词。
-func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, error) {
+func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, *repository.UsageRecord, error) {
+	record := &repository.UsageRecord{Account: email, Model: model, CreatedAt: time.Now().UTC()}
+	inputBytes := len(prompt.Text)
+	for _, attachment := range attachments {
+		inputBytes += len(attachment["extracted_content"].(string))
+	}
 	// 固定字段对齐网页端请求。
 	body := map[string]any{
 		"prompt": prompt.Text,
@@ -363,14 +369,14 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 	}
 	reqBody, err := json.Marshal(body)
 	if err != nil {
-		return 500, fmt.Errorf("构造请求体失败: %w", err)
+		return 500, nil, fmt.Errorf("构造请求体失败: %w", err)
 	}
 
 	req, err := claudeAI.request(fhttp.MethodPost,
 		fmt.Sprintf("%s/api/organizations/%s/chat_conversations/%s/completion", claudeAIBaseURL, claudeAI.orgUUID, convID),
 		bytes.NewReader(reqBody))
 	if err != nil {
-		return 500, fmt.Errorf("构造请求失败: %w", err)
+		return 500, nil, fmt.Errorf("构造请求失败: %w", err)
 	}
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("accept", "text/event-stream, text/event-stream")
@@ -379,27 +385,27 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 
 	resp, err := claudeAI.client.Do(req)
 	if err != nil {
-		return 500, fmt.Errorf("发送消息失败: %w", err)
+		return 500, nil, fmt.Errorf("发送消息失败: %w", err)
 	}
 	defer func() { resp.Body.Close() }()
 
 	if resp.StatusCode == fhttp.StatusTooManyRequests {
 		body, _ := io.ReadAll(resp.Body)
-		return 429, fmt.Errorf("rate limit exceeded: %s", utils.Truncate(string(body), 300))
+		return 429, nil, fmt.Errorf("rate limit exceeded: %s", string(body))
 	}
 	if resp.StatusCode != fhttp.StatusOK {
 		body, readErr := io.ReadAll(resp.Body)
-		bodyText := utils.Truncate(string(body), 500)
+		bodyText := string(body)
 		if readErr != nil {
-			return resp.StatusCode, fmt.Errorf("发送消息 HTTP %d（读取错误响应失败: %w）", resp.StatusCode, readErr)
+			return resp.StatusCode, nil, fmt.Errorf("发送消息 HTTP %d（读取错误响应失败: %w）", resp.StatusCode, readErr)
 		}
 		if bodyText == "" {
 			bodyText = "<empty response body>"
 		}
-		return resp.StatusCode, fmt.Errorf("发送消息 HTTP %d: %s", resp.StatusCode, bodyText)
+		return resp.StatusCode, nil, fmt.Errorf("发送消息 HTTP %d: %s", resp.StatusCode, bodyText)
 	}
-	resp.Body = CaptureAccountUsage(resp.Body, email)
-	return 200, parseCompletionSSE(resp.Body, onText)
+	resp.Body = CaptureAccountUsage(resp.Body, record, inputBytes)
+	return 200, record, parseCompletionSSE(resp.Body, onText)
 }
 
 // parseCompletionSSE 解析 completion 流。

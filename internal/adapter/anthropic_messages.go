@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"claude2api/internal/service"
+	"claude2api/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -194,7 +195,7 @@ func anthropicNonStream(c *gin.Context, model string, prompt service.Prompt) {
 		"content":       []gin.H{{"type": "text", "text": content}},
 		"stop_reason":   "end_turn",
 		"stop_sequence": nil,
-		"usage":         gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(content)},
+		"usage":         gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(content))},
 	})
 }
 
@@ -210,7 +211,7 @@ func newMessageStream(c *gin.Context, model string, prompt service.Prompt) *mess
 		"message": gin.H{
 			"id": "msg_" + shortID(), "type": "message", "role": "assistant", "model": model,
 			"content": []any{}, "stop_reason": nil,
-			"usage": gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": 0},
+			"usage": gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": 0},
 		},
 	})
 	return stream
@@ -251,7 +252,7 @@ func anthropicStream(c *gin.Context, model string, prompt service.Prompt) {
 		stop = "error"
 	}
 	stream.close()
-	stream.stop(stop, tokenCount(text))
+	stream.stop(stop, utils.EstimateTokens(len(text)))
 }
 
 // anthropicToolNonStream 带 tools 的非流式：解析标签协议后输出 content blocks。
@@ -298,7 +299,7 @@ func anthropicToolNonStream(c *gin.Context, model string, prompt service.Prompt)
 		"content":       content,
 		"stop_reason":   stop,
 		"stop_sequence": nil,
-		"usage":         gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(raw)},
+		"usage":         gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(raw))},
 	})
 }
 
@@ -336,5 +337,5 @@ func anthropicToolStream(c *gin.Context, model string, prompt service.Prompt) {
 		stream.close()
 		stopReason = "error"
 	}
-	stream.stop(stopReason, tokenCount(raw))
+	stream.stop(stopReason, utils.EstimateTokens(len(raw)))
 }

@@ -15,6 +15,7 @@ func main() {
 		slog.Error("[启动] 数据库初始化失败", "err", err)
 		return
 	}
+	defer repository.CloseDB()
 	service.StartAccountStatusMonitor()
 	router.RunServer()
 }

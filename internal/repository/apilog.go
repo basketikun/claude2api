@@ -4,22 +4,23 @@ import "encoding/json"
 
 // APILog 是 2api 调用日志。
 type APILog struct {
-	ID           int64           `json:"id" gorm:"primaryKey"`
-	CreatedAt    string          `json:"created_at"`
-	Endpoint     string          `json:"endpoint"`
-	Model        string          `json:"model"`
-	Account      string          `json:"account"`
-	Stream       bool            `json:"stream"`
-	Success      bool            `json:"success"`
-	StatusCode   int             `json:"status_code"`
-	InputTokens  int             `json:"input_tokens"`
-	OutputTokens int             `json:"output_tokens"`
-	DurationMs   int64           `json:"duration_ms"`
-	FirstTokenMs int64           `json:"first_token_ms"`
-	TPS          float64         `json:"tps"`
-	Error        string          `json:"error"`
-	Request      json.RawMessage `json:"request" gorm:"type:text;serializer:json"`
-	Response     string          `json:"response" gorm:"type:text"`
+	ID             int64           `json:"id" gorm:"primaryKey"`
+	CreatedAt      string          `json:"created_at"`
+	Endpoint       string          `json:"endpoint"`
+	Model          string          `json:"model"`
+	Account        string          `json:"account"`
+	Stream         bool            `json:"stream"`
+	Success        bool            `json:"success"`
+	StatusCode     int             `json:"status_code"`
+	InputTokens    int             `json:"input_tokens"`
+	OutputTokens   int             `json:"output_tokens"`
+	ThinkingTokens *int            `json:"thinking_tokens"`
+	DurationMs     int64           `json:"duration_ms"`
+	FirstTokenMs   int64           `json:"first_token_ms"`
+	TPS            float64         `json:"tps"`
+	Error          string          `json:"error"`
+	Request        json.RawMessage `json:"request" gorm:"type:text;serializer:json"`
+	Response       string          `json:"response" gorm:"type:text"`
 }
 
 func GetAPILog(id int64) (APILog, bool) {

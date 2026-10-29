@@ -61,6 +61,18 @@ sqlite3 data/app.db < migrations/20261029_add_account_usage.sql
 
 启动时的 AutoMigrate 也会补齐这两个字段；已由启动补齐的数据库不要重复执行 SQL。迁移脚本保留到确认线上升级完成。
 
+## Token 用量记录
+
+2026-10-29 实测普通对话、启用思考模式的对话及会话详情，均未返回输入、输出、缓存或思考 Token 计数。保留的[真实对话流](internal/service/testdata/completion.sse)包含模型、文本事件、额度窗口和结束事件，不能从额度百分比反推 Token 数。
+
+系统按可见文本的 UTF-8 字节数除以 4 向下取整，分别估算输入、输出和已返回的思考文本。输入包含本次发送的文本附件；输出包含文本及工具参数；不计图片、缓存、隐藏思考、未发送的历史上下文和上游内部提示。此估算不是 Claude 分词器结果，也不是计费用量。兼容接口返回的 `usage` 同样是文本估算。
+
+API 调用和镜像对话的统计独立保存在 `usage_records`，按账号、模型和调用来源关联；删除或清理调用日志不会删除用量记录。API 调用的记录范围是一轮公开请求，镜像的记录范围是一轮 completion 请求，不回填升级前未记录的历史。账号详情显示全时段累计用量。
+
+管理查询：`GET /api/usage?days=30&timezone_offset=-480&group=model&offset=0&limit=10`，沿用管理鉴权。`days=0` 为全部，正数从当地当天零点回溯指定天数；`timezone_offset` 使用浏览器 `getTimezoneOffset()` 的分钟值；`group` 为 `account` 或 `model`，可传 `account` 精确筛选邮箱。返回汇总、每日趋势、分组分页、来源分布及近 180 天活跃度，明确标注 `token_source: estimated`，`cache_tokens: null` 表示未提供。
+
+已有数据库执行 `migrations/20261029_add_token_statistics.sql`，或由启动 AutoMigrate 补齐，不能重复执行 SQL。本地已执行的迁移仍保留，供其他环境升级。详细日志保留文本和参数，Base64 媒体内容替换为类型及长度信息。
+
 ## 效果展示
 
 <table width="100%">

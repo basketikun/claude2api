@@ -8,6 +8,7 @@ import (
 
 	"claude2api/internal/repository"
 	"claude2api/internal/service"
+	"claude2api/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -181,9 +182,9 @@ func openAINonStream(c *gin.Context, model string, prompt service.Prompt) {
 			"finish_reason": "stop",
 		}},
 		"usage": gin.H{
-			"prompt_tokens":     tokenCount(prompt.Text),
-			"completion_tokens": tokenCount(content),
-			"total_tokens":      tokenCount(prompt.Text) + tokenCount(content),
+			"prompt_tokens":     utils.EstimateTokens(len(prompt.Text)),
+			"completion_tokens": utils.EstimateTokens(len(content)),
+			"total_tokens":      utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(content)),
 		},
 	})
 }
@@ -265,9 +266,9 @@ func openAIToolNonStream(c *gin.Context, model string, prompt service.Prompt) {
 			"finish_reason": finish,
 		}},
 		"usage": gin.H{
-			"prompt_tokens":     tokenCount(prompt.Text),
-			"completion_tokens": tokenCount(raw),
-			"total_tokens":      tokenCount(prompt.Text) + tokenCount(raw),
+			"prompt_tokens":     utils.EstimateTokens(len(prompt.Text)),
+			"completion_tokens": utils.EstimateTokens(len(raw)),
+			"total_tokens":      utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(raw)),
 		},
 	})
 }

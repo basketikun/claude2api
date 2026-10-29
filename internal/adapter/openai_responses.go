@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"claude2api/internal/service"
+	"claude2api/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -169,7 +170,7 @@ func responsesNonStream(c *gin.Context, model string, prompt service.Prompt) {
 	}
 	text = stripThinkingTags(text)
 	out := responseObject("resp_"+shortID(), model, "completed", text, time.Now().Unix())
-	out["usage"] = gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(text), "total_tokens": tokenCount(prompt.Text) + tokenCount(text)}
+	out["usage"] = gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(text)), "total_tokens": utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(text))}
 	c.JSON(http.StatusOK, out)
 }
 
@@ -219,7 +220,7 @@ func responsesStream(c *gin.Context, model string, prompt service.Prompt) {
 	stream.emit("response.output_item.done", gin.H{"output_index": 0, "item": doneItem})
 	completed := responseObject(id, model, "completed", text, created)
 	completed["output"] = []gin.H{doneItem}
-	completed["usage"] = gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(text), "total_tokens": tokenCount(prompt.Text) + tokenCount(text)}
+	completed["usage"] = gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(text)), "total_tokens": utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(text))}
 	stream.emit("response.completed", gin.H{"response": completed})
 }
 
@@ -275,7 +276,7 @@ func responsesToolNonStream(c *gin.Context, model string, prompt service.Prompt)
 			"output": output, "output_text": "",
 			"parallel_tool_calls": true, "tool_choice": "auto", "tools": []any{},
 			"text":  gin.H{"format": gin.H{"type": "text"}},
-			"usage": gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(raw), "total_tokens": tokenCount(prompt.Text) + tokenCount(raw)},
+			"usage": gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(raw)), "total_tokens": utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(raw))},
 		}
 		c.JSON(http.StatusOK, out)
 		return
@@ -283,7 +284,7 @@ func responsesToolNonStream(c *gin.Context, model string, prompt service.Prompt)
 
 	text := formatOpenAITaggedAnswer(parsed)
 	out := responseObject(id, model, "completed", text, created)
-	out["usage"] = gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(text), "total_tokens": tokenCount(prompt.Text) + tokenCount(text)}
+	out["usage"] = gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(text)), "total_tokens": utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(text))}
 	c.JSON(http.StatusOK, out)
 }
 
@@ -373,6 +374,6 @@ func responsesToolStream(c *gin.Context, model string, prompt service.Prompt) {
 	completed := responseObject(id, model, "completed", "", created)
 	completed["output"] = output
 	completed["output_text"] = textBuf.String()
-	completed["usage"] = gin.H{"input_tokens": tokenCount(prompt.Text), "output_tokens": tokenCount(rawText), "total_tokens": tokenCount(prompt.Text) + tokenCount(rawText)}
+	completed["usage"] = gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(rawText)), "total_tokens": utils.EstimateTokens(len(prompt.Text)) + utils.EstimateTokens(len(rawText))}
 	stream.emit("response.completed", gin.H{"response": completed})
 }
