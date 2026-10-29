@@ -44,6 +44,7 @@
           </div>
         </div>
         <nav class="nav" id="nav">
+          <button class="nav-item" data-page="overview">数据概览</button>
           <button class="nav-item" data-page="pool">号池选择</button>
           <button class="nav-item active" data-page="accounts">账号管理</button>
           <button class="nav-item" data-page="keys">密钥管理</button>
@@ -58,6 +59,57 @@
       </aside>
       <main class="main">
         <div id="msg" class="msg hidden"></div>
+        <section class="page hidden overview-page" id="page-overview">
+          <div class="overview-toolbar">
+            <div class="overview-ranges" role="group" aria-label="统计时间">
+              <button class="range-btn" data-days="1">今天</button>
+              <button class="range-btn" data-days="7">7 天</button>
+              <button class="range-btn active" data-days="30">30 天</button>
+              <button class="range-btn" data-days="90">90 天</button>
+              <button class="range-btn" data-days="0">全部</button>
+            </div>
+            <button class="btn" id="overview-refresh">刷新</button>
+          </div>
+          <p class="overview-status" id="overview-status" role="status"></p>
+          <div class="overview-metrics" id="overview-metrics"></div>
+          <p class="overview-note">Token 为可见文本的粗略估算，包含已返回的思考文本；图片、缓存和隐藏内容的用量未提供。</p>
+          <div class="overview-grid">
+            <section class="overview-card overview-trend">
+              <div class="overview-card-head"><h3>用量趋势</h3><span>估算 Token · 请求数</span></div>
+              <div class="overview-chart"><canvas id="overview-chart" aria-label="每日估算 Token 和请求数" role="img"></canvas></div>
+              <p class="overview-empty hidden" id="overview-chart-empty">暂无对话记录</p>
+            </section>
+            <section class="overview-card overview-sources">
+              <div class="overview-card-head"><h3>调用来源</h3><span id="overview-success"></span></div>
+              <div id="overview-sources"></div>
+            </section>
+            <section class="overview-card overview-ranking">
+              <div class="overview-card-head">
+                <div class="overview-groups" role="group" aria-label="用量分组">
+                  <button class="group-btn active" data-group="model">模型用量</button>
+                  <button class="group-btn" data-group="account">账号用量</button>
+                </div>
+                <span>估算 Token</span>
+              </div>
+              <div class="table-area">
+                <table class="acc-table overview-table">
+                  <thead><tr><th id="overview-group-label">模型</th><th>请求</th><th>成功率</th><th>输入</th><th>输出</th><th>可见思考</th><th>总量</th></tr></thead>
+                  <tbody id="overview-rows"><tr><td colspan="7" class="empty">加载中…</td></tr></tbody>
+                </table>
+              </div>
+              <div class="table-foot">
+                <div class="pager" id="overview-pager"></div>
+                <label class="inline">每页 <select class="sel" id="overview-page-size"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></label>
+              </div>
+            </section>
+            <section class="overview-card overview-activity">
+              <div class="overview-card-head"><h3>请求活跃度</h3><span>近 180 天</span></div>
+              <div class="activity-total" id="overview-activity-total"></div>
+              <div class="activity-scroll"><div class="activity-grid" id="overview-activity"></div></div>
+              <div class="activity-legend"><span>少</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>多</span></div>
+            </section>
+          </div>
+        </section>
         <section class="page hidden pool-page" id="page-pool">
           <div class="pool-wrap">
             <div class="pool-top">
@@ -415,7 +467,7 @@
                   <th>请求</th>
                   <th>账号</th>
                   <th>状态</th>
-                  <th>Token</th>
+                  <th>估算 Token</th>
                   <th>性能</th>
                   <th aria-label="操作"></th>
                 </tr>
@@ -613,6 +665,8 @@
     </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"></script>
+    <script src="/static/overview.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

@@ -39,7 +39,7 @@ function clearAuth() {
   localStorage.removeItem(AUTH_ROLE_KEY);
 }
 
-function initAdmin(initialPage = "accounts", currentRole = "admin") {
+function initAdmin(initialPage = "overview", currentRole = "admin") {
   const adminRoot = document.querySelector(".view-admin");
   const $ = (sel) => adminRoot.querySelector(sel);
 
@@ -472,7 +472,7 @@ async function deleteExpired() {
   }
 }
 
-function openDetail(email) {
+async function openDetail(email) {
   const a = ACCOUNTS.find((x) => x.email === email);
   if (!a) return;
   const rows = [
@@ -493,6 +493,14 @@ function openDetail(email) {
     ["已存活", fmtSurvived(a.created_at)],
     ["更新时间", fmtTime(a.updated_at) || "—"],
   ];
+  try {
+    const query = new URLSearchParams({ account: email, days: 0, group: "model", offset: 0, limit: 10, timezone_offset: new Date().getTimezoneOffset() });
+    const { usage } = await api(`/api/usage?${query}`);
+    const stats = usage.summary;
+    rows.push(["累计对话", stats.requests.toLocaleString("zh-CN")], ["输入 Token（估算）", stats.input_tokens.toLocaleString("zh-CN")], ["输出 Token（估算）", stats.output_tokens.toLocaleString("zh-CN")], ["可见思考（估算）", stats.thinking_tokens.toLocaleString("zh-CN")], ["缓存用量", "未提供"]);
+  } catch (error) {
+    rows.push(["累计用量", `读取失败：${error.message}`]);
+  }
 
   const info = rows
     .map(
@@ -709,7 +717,9 @@ function switchPage(name) {
     .forEach((p) => p.classList.toggle("hidden", p.id !== "page-" + name));
   if (name === "api") $("#api-base").textContent = window.location.origin;
   if (name === "chat") loadChatModels();
-  if (name === "accounts") loadAccountModels();
+  if (name === "accounts") refreshAccountsPage();
+  if (name === "overview") overview.load();
+  if (name === "pool") pool.load();
   if (name === "system") loadConfig();
   if (name === "keys") loadKeys();
   if (name === "logs") loadLogs();
@@ -806,7 +816,7 @@ async function loadLogs() {
         <td class="log-request"><b>${esc(l.endpoint)} <em>${l.stream ? "流" : "非流"}</em></b><span class="mono">${esc(l.model || "—")}</span></td>
         <td class="log-account" title="${esc(l.account || "")}">${esc(l.account || "—")}</td>
         <td>${status}<span class="log-code">HTTP ${l.status_code || "—"}</span></td>
-        <td class="log-token mono"><b>${l.input_tokens || 0}</b><i>→</i><b>${l.output_tokens || 0}</b></td>
+        <td class="log-token mono"><b>${l.input_tokens || 0}</b><i>→</i><b>${l.output_tokens || 0}</b><small class="thinking-estimate">思考 ${l.thinking_tokens == null ? "未记录" : l.thinking_tokens}</small></td>
         <td class="log-performance"><b>${fmtSeconds(l.first_token_ms)}</b><span>${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)}</span></td>
         <td><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id}">查看<span>→</span></button></td>
       </tr>`;
@@ -866,10 +876,12 @@ async function showLogDetail(id) {
         ${logMeta("账号", l.account || "—")}
         ${logMeta("结果", `${l.success ? "成功" : "失败"} · HTTP ${l.status_code || "—"}`, fmtTime(l.created_at))}
         ${logMeta("性能", `${fmtSeconds(l.first_token_ms)} 首字`, `${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)} 总耗时`)}
+        ${logMeta("可见思考", l.thinking_tokens == null ? "未记录" : `${l.thinking_tokens} 估算 Token`)}
+        ${logMeta("用量来源", "可见文本估算", "缓存用量未提供")}
       </div>
       ${l.error ? `<div class="log-error-box"><b>请求错误</b><span>${esc(l.error)}</span></div>` : ""}
-      <section class="log-detail-section"><div class="log-section-head"><div><small>REQUEST</small><h3>请求消息</h3></div><span>${l.input_tokens || 0} tokens</span></div>${renderLogRequest(l.request)}</section>
-      <section class="log-detail-section"><div class="log-section-head"><div><small>RESPONSE</small><h3>模型输出</h3></div><span>${l.output_tokens || 0} tokens</span></div>${l.response ? `<div class="log-response">${renderMarkdown(l.response)}</div>` : detailDisabled()}</section>`;
+      <section class="log-detail-section"><div class="log-section-head"><div><small>REQUEST</small><h3>请求消息</h3></div><span>${l.input_tokens || 0} 估算 Token</span></div>${renderLogRequest(l.request)}</section>
+      <section class="log-detail-section"><div class="log-section-head"><div><small>RESPONSE</small><h3>模型输出</h3></div><span>${l.output_tokens || 0} 估算 Token</span></div>${l.response ? `<div class="log-response">${renderMarkdown(l.response)}</div>` : detailDisabled()}</section>`;
     switchPage("log-detail");
     window.scrollTo(0, 0);
   } catch (e) {
@@ -926,7 +938,7 @@ function renderLogContent(content) {
   return content.map((part) => {
     if (part.type === "text" || part.type === "input_text" || part.type === "output_text") return `<div class="log-message-text">${renderMarkdown(part.text || "")}</div>`;
     const url = part.image_url?.url || part.image_url || (part.type === "image" && part.source?.data ? `data:${part.source.media_type};base64,${part.source.data}` : "");
-    if (url && /^data:image\//.test(url)) return `<figure class="log-image"><img src="${esc(url)}" alt="请求图片"><figcaption>${esc(part.type)}</figcaption></figure>`;
+    if (url && /^data:image\//.test(url) && !url.includes("[媒体内容未保存")) return `<figure class="log-image"><img src="${esc(url)}" alt="请求图片"><figcaption>${esc(part.type)}</figcaption></figure>`;
     return `<div class="log-block"><span>${esc(part.type || "block")}</span><pre>${esc(JSON.stringify(part, null, 2))}</pre></div>`;
   }).join("");
 }
@@ -1144,14 +1156,12 @@ $("#acc-body").addEventListener("click", (e) => {
   else if (e.target.classList.contains("act-del")) deleteOne(email);
 });
 
-initPool($("#page-pool"));
+const overview = initOverview($("#page-overview"), api, showMsg);
+const pool = initPool($("#page-pool"));
 if (currentRole !== "admin") {
   adminRoot
     .querySelectorAll('.nav-item:not([data-page="pool"])')
     .forEach((el) => el.classList.add("hidden"));
-} else {
-  refreshAccountsPage();
-  loadConfig();
 }
 switchPage(initialPage);
 }
@@ -1377,7 +1387,7 @@ function initPool(poolRoot) {
     render();
   });
 
-  load();
+  return { load };
 }
 
 function resolvePage() {
@@ -1385,7 +1395,7 @@ function resolvePage() {
   return {
     page: "admin",
     role: authRole,
-    initialPage: "pool",
+    initialPage: authRole === "admin" ? "overview" : "pool",
   };
 }
 
@@ -1400,7 +1410,7 @@ function boot() {
     );
 
   if (page === "admin")
-    document.title = "Claude2API · 号池选择";
+    document.title = role === "admin" ? "Claude2API · 数据概览" : "Claude2API · 号池选择";
   else if (page === "login") document.title = "登录 · Claude2API";
   else document.title = "Claude2API · 选择账号";
 
