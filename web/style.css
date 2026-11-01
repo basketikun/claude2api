@@ -582,19 +582,22 @@ body {
 .log-table { min-width: 1280px; table-layout: fixed; font-size: 12px; }
 .log-table th { padding: 12px 10px; background: color-mix(in srgb, var(--fg) 3%, var(--bg)); color: var(--fg); font-weight: 500; }
 .log-table td { padding: 9px 10px; vertical-align: middle; white-space: nowrap; }
-.log-table th.log-time { width: 160px; }
-.log-table th.log-account-col { width: 200px; }
-.log-table th.log-model-col { width: 240px; }
-.log-table th.log-mode { width: 144px; }
-.log-table th.log-status-col { width: 84px; }
-.log-table th.log-token { width: 180px; }
-.log-table th.log-performance { width: 122px; }
+.log-table th.log-time { width: 14%; }
+.log-table th.log-account-col { width: 18%; }
+.log-table th.log-model-col { width: 20%; }
+.log-table th.log-mode { width: 7%; }
+.log-table th.log-tps { width: 6%; }
+.log-table th.log-status-col { width: 8%; }
+.log-table th.log-token { width: 8%; }
+.log-table th.log-performance { width: 9%; }
+.log-table th.log-details { width: 7.5%; }
+.log-table .log-mode, .log-table .log-status-col, .log-table .log-details { text-align: center; }
 .log-table tbody tr { transition: background .16s ease; cursor: pointer; }
 .log-table tbody tr:last-child td { border-bottom: 0; }
 .log-table tbody tr.log-failed { background: color-mix(in srgb, var(--err) 4%, var(--bg)); }
 .log-table tbody tr:hover { background: var(--hover); }
 .log-table tbody tr.log-failed:hover { background: color-mix(in srgb, var(--err) 7%, var(--bg)); }
-.log-table th:first-child, .log-table td:first-child { width: 36px; padding-right: 4px; }
+.log-table th:first-child, .log-table td:first-child { width: 2.5%; padding-right: 4px; text-align: center; }
 .log-table input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
 .log-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .log-time time { display: block; font-weight: 500; }
@@ -603,19 +606,17 @@ body {
 .log-status.err { color: var(--err); }
 .log-copy { padding: 0; border: 0; background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
 .log-copy:hover { color: var(--accent); }
-.log-account { display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-account { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-model { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 8px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg); line-height: 1.4; }
 .log-model img { flex: none; }
 .log-model span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-secondary { color: var(--muted); font-size: 11px; font-weight: 400; }
 .log-mode { white-space: nowrap; }
-.log-mode .log-secondary { margin-left: 8px; }
 .log-mode .is-stream { color: var(--accent); }
-.log-token { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.log-table th.log-token { text-align: right; }
+.log-token, .log-tps { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.log-table .log-token, .log-table .log-tps { text-align: right; }
 .log-token b { font-weight: 500; }
 .log-token i { padding: 0 4px; color: var(--muted); font-style: normal; }
-.log-token > small { margin-left: 6px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .log-performance { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .log-latency { display: flex; align-items: baseline; gap: 7px; padding-left: 9px; border-left: 3px solid currentColor; line-height: 1.6; }
 .log-latency + .log-latency { margin-top: 3px; }
@@ -625,7 +626,7 @@ body {
 .log-latency.warn { color: var(--warn); }
 .log-latency.err { color: var(--err); }
 .log-latency.muted { color: var(--muted); }
-.log-open { display: block; width: 100%; padding: 6px 0; border: 0; background: transparent; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.log-open { display: block; width: 100%; padding: 6px 0; border: 0; background: transparent; color: var(--muted); font: inherit; text-align: inherit; cursor: pointer; }
 .log-open:hover { color: var(--accent); }
 .log-error-preview { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-copy:focus-visible, .log-open:focus-visible, .modal-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
