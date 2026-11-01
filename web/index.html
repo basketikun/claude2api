@@ -440,16 +440,10 @@
           </div>
         </section>
         <section class="page hidden" id="page-logs">
-          <header class="page-head">
-            <div>
-              <h2>调用日志</h2>
-            </div>
-            <div class="stats" id="logs-stats"></div>
-          </header>
-
           <div class="toolbar">
             <button id="btn-logs-refresh" class="btn">刷新</button>
             <button id="btn-logs-delete" class="btn" disabled>删除选中</button>
+            <div class="stats" id="logs-stats" role="status"></div>
             <div class="logs-keep">
               <span>仅保留最近</span>
               <input id="logs-keep" type="number" min="0" value="100" />
@@ -464,12 +458,12 @@
                 <tr>
                   <th><input id="logs-check-all" type="checkbox" aria-label="全选本页" /></th>
                   <th>时间</th>
-                  <th>请求</th>
                   <th>账号</th>
-                  <th>状态</th>
-                  <th>估算 Token</th>
-                  <th>性能</th>
-                  <th aria-label="操作"></th>
+                  <th>模型</th>
+                  <th>响应方式</th>
+                  <th class="log-token">Token · 估算<small>输入 / 输出</small></th>
+                  <th>耗时</th>
+                  <th>详情</th>
                 </tr>
               </thead>
               <tbody id="logs-body">

@@ -788,6 +788,8 @@ let logsPage = 1;
 let logsPageSize = 10;
 let logsTotal = 0;
 const fmtSeconds = (ms) => ms ? `${(ms / 1000).toFixed(2)} s` : "—";
+const logNumbers = new Intl.NumberFormat("zh-CN");
+const logSourceNames = { "chat/completions": "Chat 对话", responses: "Responses 对话", messages: "Claude 对话" };
 
 async function loadLogs() {
   const body = $("#logs-body");
@@ -796,9 +798,7 @@ async function loadLogs() {
     const data = await api(`/api/logs?limit=${logsPageSize}&offset=${offset}`);
     const logs = data.logs || [];
     logsTotal = data.total || 0;
-    const success = logs.filter((l) => l.success).length;
-    const avgTPS = logs.length ? logs.reduce((n, l) => n + (l.tps || 0), 0) / logs.length : 0;
-    $("#logs-stats").innerHTML = `<span><small>调用</small><b>${logsTotal}</b></span><span><small>成功</small><b>${success}/${logs.length}</b></span><span><small>TPS</small><b>${avgTPS.toFixed(1)}</b></span>`;
+    $("#logs-stats").textContent = `共 ${logNumbers.format(logsTotal)} 次调用`;
     if (!logs.length) {
       body.innerHTML = `<tr><td colspan="8" class="empty">暂无调用日志</td></tr>`;
       updateLogSelection();
@@ -807,24 +807,26 @@ async function loadLogs() {
     }
     body.innerHTML = logs
       .map((l) => {
-        const status = l.success
-          ? `<span class="log-status ok"><i></i>成功</span>`
-          : `<span class="log-status err" title="${esc(l.error || "")}"><i></i>失败</span>`;
-        return `<tr data-log-id="${l.id}">
+        const output = l.output_tokens + (l.thinking_tokens ?? 0);
+        const hasUsage = l.success || l.input_tokens > 0 || output > 0;
+        const firstTone = l.first_token_ms === 0 ? "muted" : l.first_token_ms <= 3000 ? "ok" : l.first_token_ms <= 10000 ? "warn" : "err";
+        const durationTone = l.duration_ms === 0 ? "muted" : l.duration_ms <= 30000 ? "ok" : l.duration_ms <= 60000 ? "warn" : "err";
+        return `<tr data-log-id="${l.id}" class="${l.success ? "" : "log-failed"}">
         <td><input class="log-check" type="checkbox" value="${l.id}" aria-label="选择日志 ${l.id}"></td>
-        <td class="log-time"><b>${esc(fmtTime(l.created_at).split(" ")[1] || "—")}</b><span>${esc(fmtTime(l.created_at).split(" ")[0] || "")}</span></td>
-        <td class="log-request"><b>${esc(l.endpoint)} <em>${l.stream ? "流" : "非流"}</em></b><span class="mono">${esc(l.model || "—")}</span></td>
-        <td class="log-account" title="${esc(l.account || "")}">${esc(l.account || "—")}</td>
-        <td>${status}<span class="log-code">HTTP ${l.status_code || "—"}</span></td>
-        <td class="log-token mono"><b>${l.input_tokens || 0}</b><i>→</i><b>${(l.output_tokens || 0) + (l.thinking_tokens || 0)}</b><small class="thinking-estimate">其中可见思考 ${l.thinking_tokens == null ? "未记录" : l.thinking_tokens}</small></td>
-        <td class="log-performance"><b>${fmtSeconds(l.first_token_ms)}</b><span>${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)}</span></td>
-        <td><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id}">查看<span>→</span></button></td>
+        <td class="log-time"><time datetime="${esc(l.created_at)}">${esc(fmtTime(l.created_at))}</time><span class="log-status ${l.success ? "ok" : "err"}">${l.success ? "成功" : "失败"}${l.status_code ? ` · ${l.status_code}` : ""}</span></td>
+        <td>${l.account ? `<button class="log-copy log-account" data-copy="${esc(l.account)}" title="${esc(l.account)} · 点击复制">${esc(l.account)}</button>` : '<span class="log-secondary">未分配</span>'}</td>
+        <td class="log-request"><button class="log-copy log-model" data-copy="${esc(l.model)}" title="${esc(l.model)} · 点击复制"><img src="/static/claude.svg" alt="" width="15" height="15"><span>${esc(l.model)}</span></button><small class="log-secondary">${esc(logSourceNames[l.endpoint])}</small></td>
+        <td class="log-mode"><span class="${l.stream ? "is-stream" : ""}">${l.stream ? "流式" : "非流式"}</span><small class="log-secondary">${l.tps > 0 ? `${l.tps.toFixed(1)} Token/s` : "—"}</small></td>
+        <td class="log-token">${hasUsage ? `<b>${logNumbers.format(l.input_tokens)}</b><i>/</i><b>${logNumbers.format(output)}</b><small class="log-secondary">可见思考 ${l.thinking_tokens == null ? "未记录" : logNumbers.format(l.thinking_tokens)}</small>` : '<span class="log-secondary">—</span>'}</td>
+        <td class="log-performance"><span class="log-latency ${firstTone}"><small>首字</small><b>${fmtSeconds(l.first_token_ms)}</b></span><span class="log-latency ${durationTone}"><small>总计</small><b>${fmtSeconds(l.duration_ms)}</b></span></td>
+        <td class="log-details"><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id} 详情" title="${esc(l.error)}">${l.error ? `<span class="log-error-preview">${esc(l.error)}</span>` : "查看详情"}</button></td>
       </tr>`;
       })
       .join("");
     updateLogSelection();
     renderLogsPager();
   } catch (e) {
+    $("#logs-stats").textContent = "";
     body.innerHTML = `<tr><td colspan="8" class="empty">加载失败：${esc(e.message)}</td></tr>`;
     updateLogSelection();
   }
@@ -834,6 +836,7 @@ function updateLogSelection() {
   const checks = [...document.querySelectorAll(".log-check")];
   const selected = checks.filter((el) => el.checked);
   $("#logs-check-all").checked = checks.length > 0 && selected.length === checks.length;
+  $("#logs-check-all").indeterminate = selected.length > 0 && selected.length < checks.length;
   $("#btn-logs-delete").disabled = selected.length === 0;
   $("#btn-logs-delete").textContent = selected.length ? `删除选中（${selected.length}）` : "删除选中";
 }
@@ -1072,7 +1075,17 @@ $("#logs-pager").addEventListener("click", (e) => {
     loadLogs();
   }
 });
-$("#logs-body").addEventListener("click", (e) => {
+$("#logs-body").addEventListener("click", async (e) => {
+  const copy = e.target.closest("[data-copy]");
+  if (copy) {
+    try {
+      await navigator.clipboard.writeText(copy.dataset.copy);
+      showMsg("已复制", "ok");
+    } catch {
+      showMsg("复制失败，请手动选择", "err");
+    }
+    return;
+  }
   if (e.target.classList.contains("log-check")) updateLogSelection();
   const btn = e.target.closest(".act-log-detail");
   const row = e.target.closest("tr[data-log-id]");
