@@ -2032,7 +2032,7 @@ body[data-page="login"] .err {
 .overview-metric strong { font-size: 25px; line-height: 1.1; font-weight: 500; font-variant-numeric: tabular-nums; }
 .overview-metric small { color: var(--muted); font-size: 11px; }
 .overview-note { margin: 12px 0 20px; color: var(--muted); font-size: 12px; }
-.overview-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr); gap: 18px; align-items: start; }
+.overview-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr); gap: 18px; align-items: stretch; }
 .overview-card { min-width: 0; padding: 20px; }
 .overview-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
 .overview-card-head h3 { margin: 0; font-size: 14px; font-weight: 500; }
