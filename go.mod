@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/openai/openai-go/v3 v3.50.0
 	github.com/tiktoken-go/tokenizer v0.7.0
+	golang.org/x/mod v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.25.12
 )

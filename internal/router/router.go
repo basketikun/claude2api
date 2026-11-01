@@ -18,6 +18,8 @@ import (
 // NewMainEngine 构造主站引擎。
 func NewMainEngine() *gin.Engine {
 	r := gin.Default()
+	r.GET("/api/version", handler.AppVersion)
+	r.GET("/api/changelog", handler.AppChangelog)
 
 	admin := r.Group("/api")
 	admin.Use(middleware.AdminAuth())

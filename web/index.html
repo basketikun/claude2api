@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Claude2API</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.css" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
@@ -54,6 +55,11 @@
           <button class="nav-item" data-page="system">系统管理</button>
         </nav>
         <div class="nav-foot">
+          <div class="project-links">
+            <a class="github-link nav-link" href="https://github.com/basketikun/claude2api" target="_blank" rel="noopener noreferrer"><img src="/static/github.svg" alt="" width="17" height="17">GitHub</a>
+            <button id="app-version" type="button" class="version-link nav-link" aria-haspopup="dialog" aria-controls="version-dialog" title="查看版本更新记录"><span id="app-version-text">读取版本…</span><i id="version-update-dot" class="hidden" aria-hidden="true"></i></button>
+          </div>
+          <span id="version-update-status" class="version-update-status hidden" role="status"></span>
           <button id="btn-logout" class="nav-link nav-logout">退出登录</button>
         </div>
       </aside>
@@ -99,7 +105,7 @@
               </div>
               <div class="table-foot">
                 <div class="pager" id="overview-pager"></div>
-                <label class="inline">每页 <select class="sel" id="overview-page-size"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></label>
+                <label class="inline">每页 <select class="page-size-select" id="overview-page-size" aria-label="用量列表每页条数"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></label>
               </div>
             </section>
             <section class="overview-card overview-activity">
@@ -200,14 +206,15 @@
           </div>
 
           <div class="table-area">
-            <table class="acc-table">
+            <table class="acc-table account-table">
               <thead>
                 <tr>
                   <th class="col-idx">#</th>
                   <th>邮箱</th>
                   <th>状态</th>
-                  <th>5 小时用量</th>
-                  <th>7 天用量</th>
+                  <th>套餐</th>
+                  <th class="account-usage-cell">5 小时用量</th>
+                  <th class="account-usage-cell">7 天用量</th>
                   <th>创建日期</th>
                   <th>已存活</th>
                   <th>上次刷新</th>
@@ -216,7 +223,7 @@
               </thead>
               <tbody id="acc-body">
                 <tr>
-                  <td colspan="9" class="empty">加载中…</td>
+                  <td colspan="10" class="empty">加载中…</td>
                 </tr>
               </tbody>
             </table>
@@ -226,7 +233,7 @@
             <div class="pager" id="pager"></div>
             <label class="inline"
               >每页
-              <select id="page-size" class="sel">
+              <select id="page-size" class="page-size-select" aria-label="账号列表每页条数">
                 <option value="10">10</option>
                 <option value="20">20</option>
                 <option value="100">100</option>
@@ -415,9 +422,9 @@
                 ></textarea>
                 <div class="chat-actions">
                   <div class="chat-tools">
-                    <select id="test-model" class="inp sel chat-model-select">
-                      <option value="">加载模型中…</option>
-                    </select>
+                    <div class="chat-model-picker">
+                      <input id="test-model" class="inp" aria-label="选择模型" placeholder="加载模型中…" disabled />
+                    </div>
                     <label class="btn chat-upload"
                       >图片
                       <input
@@ -480,7 +487,7 @@
             <div class="pager" id="logs-pager"></div>
             <label class="inline"
               >每页
-              <select id="logs-page-size" class="sel">
+              <select id="logs-page-size" class="page-size-select" aria-label="调用日志每页条数">
                 <option value="10">10</option>
                 <option value="20">20</option>
                 <option value="50">50</option>
@@ -540,7 +547,7 @@
                 </label>
                 <label class="field"
                   >用完自动删会话
-                  <select id="cfg-chat_delete" class="inp sel">
+                  <select id="cfg-chat_delete" aria-label="用完自动删会话">
                     <option value="true">是</option>
                     <option value="false">否</option>
                   </select>
@@ -566,14 +573,14 @@
                 </label>
                 <label class="field"
                   >会话失效时移除账号
-                  <select id="cfg-remove_invalid_account" class="inp sel">
+                  <select id="cfg-remove_invalid_account" aria-label="会话失效时移除账号">
                     <option value="false">否</option>
                     <option value="true">是</option>
                   </select>
                 </label>
                 <label class="field"
                   >记录详细请求日志
-                  <select id="cfg-detailed_api_log" class="inp sel">
+                  <select id="cfg-detailed_api_log" aria-label="记录详细请求日志">
                     <option value="false">否，仅记录指标</option>
                     <option value="true">是，记录请求与输出</option>
                   </select>
@@ -591,6 +598,24 @@
 
         </section>
       </main>
+    <dialog id="version-dialog" class="modal modal-lg version-dialog" aria-labelledby="version-dialog-title">
+      <div class="modal-head">
+        <h2 class="modal-title" id="version-dialog-title">版本更新</h2>
+        <button id="version-close" type="button" class="btn-link modal-x" aria-label="关闭版本更新" autofocus>×</button>
+      </div>
+      <div class="version-summary">
+        <div class="version-summary-card">
+          <div class="version-summary-head"><span>当前版本</span></div>
+          <strong id="version-current">读取中…</strong>
+        </div>
+        <div class="version-summary-card">
+          <div class="version-summary-head"><span>最新版本</span><span id="version-check-state" role="status">检查中…</span></div>
+          <strong id="version-latest">—</strong>
+        </div>
+      </div>
+      <div id="version-history" class="modal-body detail-body version-history" tabindex="0" aria-label="版本更新记录">正在读取更新记录…</div>
+      <div class="version-footer"><a class="nav-link" href="https://github.com/basketikun/claude2api" target="_blank" rel="noopener noreferrer">前往GitHub</a></div>
+    </dialog>
     <div id="confirm-mask" class="modal-mask hidden">
       <div class="modal">
         <div class="modal-title" id="confirm-title">确认操作</div>
@@ -662,6 +687,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/js/tom-select.base.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@18.1.2/lib/marked.umd.js"></script>
     <script src="/static/overview.js"></script>
     <script src="/static/app.js"></script>
   </body>

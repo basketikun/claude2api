@@ -21,6 +21,25 @@ function usageWindowText(account, key) {
   return `已用 ${percent}\n${time} 重置${Date.now() >= reset.getTime() ? "\n已到重置时间，待更新" : ""}`;
 }
 
+function accountPlanText(plan) {
+  if (plan === "") return "未查询";
+  return plan === "claude_free" ? "Free" : plan;
+}
+
+function renderAccountUsage(account, key) {
+  const window = account.usage?.windows[key];
+  if (!window) return '<span class="account-usage-empty">暂无记录</span>';
+  const percent = new Intl.NumberFormat("zh-CN", { style: "percent", maximumFractionDigits: 1 }).format(window.utilization);
+  const reset = new Date(window.resets_at * 1000);
+  const pending = Date.now() >= reset.getTime();
+  const tone = pending ? "pending" : window.utilization >= 1 ? "full" : window.utilization >= 0.8 ? "high" : "normal";
+  const time = reset.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+  return `<div class="account-usage ${tone}">
+    <div class="account-usage-head"><strong>${esc(percent)}</strong><time datetime="${reset.toISOString()}" title="${esc(`${time} 重置${pending ? "，已到重置时间，等待新对话更新用量" : ""}`)}">${pending ? "待更新" : `${esc(time)}重置`}</time></div>
+    <progress max="1" value="${window.utilization}" aria-label="${key === "5h" ? "5 小时" : "7 天"}已用 ${esc(percent)}${pending ? "，已到重置时间，待更新" : ""}"></progress>
+  </div>`;
+}
+
 const AUTH_TOKEN_KEY = "claude2api_credential";
 const AUTH_ROLE_KEY = "claude2api_role";
 let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -42,6 +61,15 @@ function clearAuth() {
 function initAdmin(initialPage = "overview", currentRole = "admin") {
   const adminRoot = document.querySelector(".view-admin");
   const $ = (sel) => adminRoot.querySelector(sel);
+
+  for (const select of adminRoot.querySelectorAll("select")) {
+    if (!select.tomselect) new TomSelect(select, {
+      controlInput: null,
+      copyClassesToDropdown: false,
+      onDelete: () => false,
+      onInitialize() { this.control.setAttribute("aria-label", select.getAttribute("aria-label")); },
+    });
+  }
 
   let ACCOUNTS = [];
 
@@ -231,12 +259,12 @@ function renderTable() {
   const rows = filteredAccounts();
 
   if (!ACCOUNTS.length) {
-    body.innerHTML = `<tr><td colspan="9" class="empty">暂无账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="empty">暂无账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="9" class="empty">没有符合条件的账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="empty">没有符合条件的账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
@@ -251,8 +279,9 @@ function renderTable() {
       <td>${start + i + 1}</td>
       <td class="mono">${esc(a.email)}</td>
       <td>${statusBadge(a.status)}</td>
-      <td class="usage-window" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${esc(usageWindowText(a, "5h"))}</td>
-      <td class="usage-window" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${esc(usageWindowText(a, "7d"))}</td>
+      <td><span class="account-plan" title="${esc(a.subscription_plan)}">${esc(accountPlanText(a.subscription_plan))}</span></td>
+      <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "5h")}</td>
+      <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "7d")}</td>
       <td class="mono">${esc(fmtTime(a.created_at) || "—")}</td>
       <td>${esc(fmtSurvived(a.created_at))}</td>
       <td class="mono">${esc(fmtTime(a.updated_at) || "—")}</td>
@@ -338,7 +367,7 @@ async function loadAccountModels() {
       ? names
           .map(
             (name) =>
-              `<button type="button" class="model-pill" data-model="${esc(name)}">${esc(name)}</button>`,
+              `<button type="button" class="model-pill model-icon-label" data-model="${esc(name)}">${esc(name)}</button>`,
           )
           .join("")
       : '<span class="model-empty">暂无套餐可用模型，请先刷新账号</span>';
@@ -484,6 +513,7 @@ async function openDetail(email) {
       ] || a.status,
     ],
     ["组织 UUID", a.org_uuid || "—"],
+    ["套餐", accountPlanText(a.subscription_plan)],
     ["套餐可用模型", a.models?.length ? a.models.map((model) => model.id).join("、") : "请刷新账号"],
     ["模型记录时间", a.models_updated_at ? fmtTime(a.models_updated_at) : "暂无记录"],
     ["5 小时用量", usageWindowText(a, "5h")],
@@ -505,7 +535,7 @@ async function openDetail(email) {
   const info = rows
     .map(
       ([k, v]) =>
-        `<div class="dl-row"><span class="dl-key">${esc(k)}</span><span class="dl-val mono usage-window">${esc(v)}</span></div>`,
+        `<div class="dl-row"><span class="dl-key">${esc(k)}</span><span class="dl-val mono usage-window${k === "套餐可用模型" ? " model-list" : ""}">${k === "套餐可用模型" && a.models?.length ? a.models.map((model) => `<span class="model-pill model-icon-label">${esc(model.id)}</span>`).join("") : esc(v)}</span></div>`,
     )
     .join("");
 
@@ -525,7 +555,9 @@ async function loadConfig() {
     for (const k of CONFIG_FIELDS) {
       const el = $("#cfg-" + k);
       if (!el) continue;
-      el.value = String(c[k] ?? CONFIG_DEFAULTS[k] ?? "");
+      const value = String(c[k] ?? CONFIG_DEFAULTS[k] ?? "");
+      if (el.tagName === "SELECT") el.tomselect.setValue(value, true);
+      else el.value = value;
     }
   } catch (e) {
     showMsg("加载配置失败: " + e.message, "err");
@@ -602,16 +634,42 @@ function renderChat() {
 }
 
 async function loadChatModels() {
+  const select = $("#test-model");
   try {
-    const select = $("#test-model");
-    const models = await fetchModels();
-    select.innerHTML = models.length
-      ? models
-          .map((m) => `<option value="${esc(m.id)}">${esc(m.id)}</option>`)
-          .join("")
-      : '<option value="">暂无可用模型</option>';
+    if (!select.tomselect) new TomSelect(select, {
+      maxItems: 1,
+      valueField: "id",
+      labelField: "id",
+      searchField: "id",
+      placeholder: "选择模型",
+      onInitialize() { this.control_input.setAttribute("aria-label", "选择模型"); },
+      render: {
+        item: (model, escape) => `<div class="model-icon-label" title="${escape(model.id)}"><span>${escape(model.id)}</span></div>`,
+        option: (model, escape) => `<div class="model-icon-label" title="${escape(model.id)}"><span>${escape(model.id)}</span></div>`,
+        no_results: () => '<div class="no-results">没有匹配的模型</div>',
+      },
+    });
+    const picker = select.tomselect;
+    const previous = picker.getValue();
+    picker.disable();
+    const names = modelNames(await fetchModels());
+    picker.clear();
+    picker.clearOptions();
+    picker.addOptions(names.map((id) => ({ id })));
+    picker.settings.placeholder = names.length ? "选择模型" : "暂无可用模型";
+    if (names.length) {
+      picker.setValue(names.includes(previous) ? previous : names[0]);
+      picker.enable();
+    }
+    picker.inputState();
   } catch (e) {
-    $("#test-model").innerHTML = '<option value="">加载失败</option>';
+    select.value = "";
+    select.placeholder = "加载失败";
+    if (select.tomselect) {
+      select.tomselect.clear();
+      select.tomselect.settings.placeholder = "加载失败";
+      select.tomselect.inputState();
+    }
     showMsg("加载模型失败: " + e.message, "err");
   }
 }
@@ -635,7 +693,8 @@ async function readChatImages(files) {
 }
 
 async function sendTestChat() {
-  const model = $("#test-model").value.trim();
+  const model = $("#test-model").value;
+  if (!model) return showMsg("请先选择可用模型", "err");
   const key = authToken;
   const message = $("#test-message").value.trim();
   if (!message) {
@@ -876,7 +935,7 @@ async function showLogDetail(id) {
     $("#log-detail-title").innerHTML = `调用详情 <span>#${l.id}</span>`;
     $("#log-detail-body").innerHTML = `
       <div class="log-detail-meta">
-        ${logMeta("请求", l.endpoint, l.model || "—")}
+        <div class="log-meta-item"><small>请求</small><b>${esc(l.endpoint)}</b><span class="model-icon-label">${esc(l.model || "—")}</span></div>
         ${logMeta("账号", l.account || "—")}
         ${logMeta("结果", `${l.success ? "成功" : "失败"} · HTTP ${l.status_code || "—"}`, fmtTime(l.created_at))}
         ${logMeta("性能", `${fmtSeconds(l.first_token_ms)} 首字`, `${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)} 总耗时`)}
@@ -993,7 +1052,7 @@ $("#nav").addEventListener("click", (e) => {
 $("#account-models").addEventListener("click", (e) => {
   const btn = e.target.closest(".model-pill");
   if (!btn) return;
-  const model = btn.dataset.model || btn.textContent.trim();
+  const model = btn.dataset.model;
   navigator.clipboard?.writeText(model).then(
     () => showMsg(`已复制模型：${model}`, "ok"),
     () => showMsg("复制失败，请手动选择", "err"),
@@ -1267,12 +1326,13 @@ function initPool(poolRoot) {
               <span class="pool-email">${esc(a.email)}</span>
             </div>
             <div class="pool-usage">
-              <div class="usage-window"><strong>5 小时</strong>\n${esc(usageWindowText(a, "5h"))}</div>
-              <div class="usage-window"><strong>7 天</strong>\n${esc(usageWindowText(a, "7d"))}</div>
+              <div><span class="pool-usage-label">5 小时用量</span>${renderAccountUsage(a, "5h")}</div>
+              <div><span class="pool-usage-label">7 天用量</span>${renderAccountUsage(a, "7d")}</div>
             </div>
             ${a.usage_updated_at ? `<div class="meta">记录于 ${esc(new Date(a.usage_updated_at).toLocaleString("zh-CN", { hour12: false }))}</div>` : ""}
           </div>
           <div class="pool-card-foot">
+            <span class="account-plan" title="订阅套餐">${esc(accountPlanText(a.subscription_plan))}</span>
             <span class="enter">进入使用 ${iconArrow}</span>
           </div>
         </div>`;
@@ -1432,4 +1492,78 @@ function boot() {
   else if (page === "login") initLogin();
 }
 
+async function loadAppVersion() {
+  const button = document.querySelector("#app-version");
+  const status = document.querySelector("#version-update-status");
+  const check = document.querySelector("#version-check-state");
+  check.textContent = "检查中…";
+  check.classList.remove("is-update");
+  try {
+    const response = await fetch("/api/version", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const version = await response.json();
+    document.querySelector("#app-version-text").textContent = version.version;
+    document.querySelector("#version-update-dot").classList.toggle("hidden", !version.update_available);
+    status.classList.toggle("hidden", !version.update_available);
+    status.textContent = version.update_available ? `有新版本 ${version.latest_version}` : "";
+    document.querySelector("#version-current").textContent = version.version;
+    document.querySelector("#version-latest").textContent = version.check_failed ? "暂不可用" : version.latest_version;
+    check.textContent = version.check_failed ? "检查失败" : version.update_available ? "有更新" : "未发现更新";
+    check.classList.toggle("is-update", version.update_available);
+    const detail = version.check_failed ? `当前 ${version.version}，暂时无法检查更新` : version.update_available ? `当前 ${version.version}，可更新至 ${version.latest_version}` : `当前 ${version.version}，未发现新版本`;
+    button.title = `${detail}，点击查看更新记录`;
+    button.setAttribute("aria-label", `查看版本更新记录，${detail}`);
+  } catch {
+    button.title = "版本信息暂时无法读取，点击查看更新记录";
+    button.setAttribute("aria-label", button.title);
+    document.querySelector("#app-version-text").textContent = "版本未知";
+    document.querySelector("#version-update-dot").classList.add("hidden");
+    document.querySelector("#version-current").textContent = "读取失败";
+    document.querySelector("#version-latest").textContent = "暂不可用";
+    check.textContent = "检查失败";
+    status.classList.add("hidden");
+  }
+}
+
+async function openVersionHistory() {
+  const dialog = document.querySelector("#version-dialog");
+  const history = document.querySelector("#version-history");
+  history.textContent = "正在读取更新记录…";
+  dialog.showModal();
+  loadAppVersion();
+  try {
+    const response = await fetch("/api/changelog", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const releases = [];
+    let kind;
+    for (const token of marked.lexer(await response.text())) {
+      if (token.type === "heading" && token.depth === 2) {
+        const [version, date] = token.text.split(" · ");
+        releases.push({ version, date, changes: [] });
+      } else if (token.type === "heading" && token.depth === 3) {
+        kind = token.text;
+      } else if (token.type === "list") {
+        releases.at(-1).changes.push(...token.items.map((item) => ({ kind, text: item.text })));
+      }
+    }
+    history.innerHTML = releases.map((release) => `<section class="release-entry">
+      <div class="release-head"><h3>${esc(release.version)}</h3>${release.date ? `<time datetime="${esc(release.date)}">${esc(release.date)}</time>` : ""}</div>
+      <ul class="release-changes">${release.changes.map((change) => `<li><span class="change-tag" data-kind="${esc(change.kind)}">${esc(change.kind)}</span><span>${esc(change.text)}</span></li>`).join("")}</ul>
+    </section>`).join("");
+    history.scrollTop = 0;
+  } catch {
+    history.textContent = "更新记录暂时无法读取，请关闭后重试，或前往 GitHub 查看。";
+  }
+}
+
+document.querySelector("#app-version").addEventListener("click", openVersionHistory);
+document.querySelector("#version-close").addEventListener("click", () => document.querySelector("#version-dialog").close());
+document.querySelector("#version-dialog").addEventListener("click", (event) => {
+  if (event.target !== event.currentTarget) return;
+  const bounds = event.currentTarget.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) event.currentTarget.close();
+});
+
 boot();
+loadAppVersion();
+setInterval(() => { if (!document.hidden) loadAppVersion(); }, 60 * 60 * 1000);

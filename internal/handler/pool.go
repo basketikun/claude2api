@@ -21,7 +21,7 @@ func PoolList(c *gin.Context) {
 		if status == "" {
 			status = "unknown"
 		}
-		items = append(items, gin.H{"email": account.Email, "status": status, "usage": account.Usage, "usage_updated_at": account.UsageUpdatedAt})
+		items = append(items, gin.H{"email": account.Email, "status": status, "subscription_plan": account.SubscriptionPlan, "usage": account.Usage, "usage_updated_at": account.UsageUpdatedAt})
 	}
 	c.JSON(http.StatusOK, gin.H{"accounts": items, "current": current})
 }

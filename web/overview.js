@@ -57,7 +57,7 @@ function initOverview(root, api, showMsg) {
 
   function renderGroups(rows, total) {
     $("#overview-group-label").textContent = group === "model" ? "模型" : "账号";
-    $("#overview-rows").innerHTML = rows.length ? rows.map((row) => `<tr><td><button class="usage-copy" data-copy="${esc(row.name)}" title="点击复制">${esc(row.name || "未分配账号")}</button></td><td>${numbers.format(row.requests)}</td><td>${(row.successes / row.requests * 100).toFixed(1)}%</td><td>${numbers.format(row.input_tokens)}</td><td>${numbers.format(row.output_tokens)}</td><td>${numbers.format(row.thinking_tokens)}</td><td class="usage-total">${numbers.format(row.total_tokens)}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">暂无对话记录</td></tr>';
+    $("#overview-rows").innerHTML = rows.length ? rows.map((row) => `<tr><td><button class="usage-copy${group === "model" ? " model-icon-label" : ""}" data-copy="${esc(row.name)}" title="点击复制">${esc(row.name || "未分配账号")}</button></td><td>${numbers.format(row.requests)}</td><td>${(row.successes / row.requests * 100).toFixed(1)}%</td><td>${numbers.format(row.input_tokens)}</td><td>${numbers.format(row.output_tokens)}</td><td>${numbers.format(row.thinking_tokens)}</td><td class="usage-total">${numbers.format(row.total_tokens)}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">暂无对话记录</td></tr>';
     const totalPages = Math.max(1, Math.ceil(total / pageSizes[group]));
     $("#overview-pager").innerHTML = `<button class="page-btn" data-step="-1"${pages[group] === 1 ? " disabled" : ""}>上一页</button><span class="pager-info">${pages[group]} / ${totalPages} 页 · 共 ${numbers.format(total)} 条</span><button class="page-btn" data-step="1"${pages[group] >= totalPages ? " disabled" : ""}>下一页</button>`;
   }
@@ -130,7 +130,7 @@ function initOverview(root, api, showMsg) {
     const button = event.target.closest("[data-group]");
     if (!button) return;
     group = button.dataset.group;
-    $("#overview-page-size").value = pageSizes[group];
+    $("#overview-page-size").tomselect.setValue(pageSizes[group], true);
     root.querySelectorAll("[data-group]").forEach((item) => item.classList.toggle("active", item === button));
     load();
   });
