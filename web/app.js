@@ -789,7 +789,6 @@ let logsPageSize = 10;
 let logsTotal = 0;
 const fmtSeconds = (ms) => ms ? `${(ms / 1000).toFixed(2)} s` : "—";
 const logNumbers = new Intl.NumberFormat("zh-CN");
-const logSourceNames = { "chat/completions": "Chat 对话", responses: "Responses 对话", messages: "Claude 对话" };
 
 async function loadLogs() {
   const body = $("#logs-body");
@@ -800,7 +799,7 @@ async function loadLogs() {
     logsTotal = data.total || 0;
     $("#logs-stats").textContent = `共 ${logNumbers.format(logsTotal)} 次调用`;
     if (!logs.length) {
-      body.innerHTML = `<tr><td colspan="8" class="empty">暂无调用日志</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" class="empty">暂无调用日志</td></tr>`;
       updateLogSelection();
       renderLogsPager();
       return;
@@ -813,13 +812,14 @@ async function loadLogs() {
         const durationTone = l.duration_ms === 0 ? "muted" : l.duration_ms <= 30000 ? "ok" : l.duration_ms <= 60000 ? "warn" : "err";
         return `<tr data-log-id="${l.id}" class="${l.success ? "" : "log-failed"}">
         <td><input class="log-check" type="checkbox" value="${l.id}" aria-label="选择日志 ${l.id}"></td>
-        <td class="log-time"><time datetime="${esc(l.created_at)}">${esc(fmtTime(l.created_at))}</time><span class="log-status ${l.success ? "ok" : "err"}">${l.success ? "成功" : "失败"}${l.status_code ? ` · ${l.status_code}` : ""}</span></td>
+        <td class="log-time"><time datetime="${esc(l.created_at)}">${esc(fmtTime(l.created_at))}</time></td>
         <td>${l.account ? `<button class="log-copy log-account" data-copy="${esc(l.account)}" title="${esc(l.account)} · 点击复制">${esc(l.account)}</button>` : '<span class="log-secondary">未分配</span>'}</td>
-        <td class="log-request"><button class="log-copy log-model" data-copy="${esc(l.model)}" title="${esc(l.model)} · 点击复制"><img src="/static/claude.svg" alt="" width="15" height="15"><span>${esc(l.model)}</span></button><small class="log-secondary">${esc(logSourceNames[l.endpoint])}</small></td>
+        <td><button class="log-copy log-model" data-copy="${esc(l.model)}" title="${esc(l.model)} · 点击复制"><img src="/static/claude.svg" alt="" width="15" height="15"><span>${esc(l.model)}</span></button></td>
         <td class="log-mode"><span class="${l.stream ? "is-stream" : ""}">${l.stream ? "流式" : "非流式"}</span><small class="log-secondary">${l.tps > 0 ? `${l.tps.toFixed(1)} Token/s` : "—"}</small></td>
-        <td class="log-token">${hasUsage ? `<b>${logNumbers.format(l.input_tokens)}</b><i>/</i><b>${logNumbers.format(output)}</b><small class="log-secondary">可见思考 ${l.thinking_tokens == null ? "未记录" : logNumbers.format(l.thinking_tokens)}</small>` : '<span class="log-secondary">—</span>'}</td>
+        <td><span class="log-status ${l.success ? "ok" : "err"}">${l.success ? "成功" : "失败"}${l.status_code ? ` · ${l.status_code}` : ""}</span></td>
+        <td class="log-token">${hasUsage ? `<b>${logNumbers.format(l.input_tokens)}</b><i>/</i><b>${logNumbers.format(output)}</b>` : '<span class="log-secondary">—</span>'}</td>
         <td class="log-performance"><span class="log-latency ${firstTone}"><small>首字</small><b>${fmtSeconds(l.first_token_ms)}</b></span><span class="log-latency ${durationTone}"><small>总计</small><b>${fmtSeconds(l.duration_ms)}</b></span></td>
-        <td class="log-details"><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id} 详情" title="${esc(l.error)}">${l.error ? `<span class="log-error-preview">${esc(l.error)}</span>` : "查看详情"}</button></td>
+        <td><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id} 详情" title="${esc(l.error)}">${l.error ? `<span class="log-error-preview">${esc(l.error)}</span>` : "查看详情"}</button></td>
       </tr>`;
       })
       .join("");
@@ -827,7 +827,7 @@ async function loadLogs() {
     renderLogsPager();
   } catch (e) {
     $("#logs-stats").textContent = "";
-    body.innerHTML = `<tr><td colspan="8" class="empty">加载失败：${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty">加载失败：${esc(e.message)}</td></tr>`;
     updateLogSelection();
   }
 }

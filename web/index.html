@@ -457,18 +457,19 @@
               <thead>
                 <tr>
                   <th><input id="logs-check-all" type="checkbox" aria-label="全选本页" /></th>
-                  <th>时间</th>
-                  <th>账号</th>
-                  <th>模型</th>
-                  <th>响应方式</th>
+                  <th class="log-time">时间</th>
+                  <th class="log-account-col">账号</th>
+                  <th class="log-model-col">模型</th>
+                  <th class="log-mode">响应方式</th>
+                  <th class="log-status-col">状态码</th>
                   <th class="log-token">Token · 估算<small>输入 / 输出</small></th>
-                  <th>耗时</th>
+                  <th class="log-performance">耗时</th>
                   <th>详情</th>
                 </tr>
               </thead>
               <tbody id="logs-body">
                 <tr>
-                  <td colspan="8" class="empty">加载中…</td>
+                  <td colspan="9" class="empty">加载中…</td>
                 </tr>
               </tbody>
             </table>
