@@ -1,8 +1,16 @@
 package utils
 
-// EstimateTokens 按 UTF-8 字节数 / 4 粗估可见文本 Token，不是模型分词结果。
-func EstimateTokens(size int) int {
-	return size / 4
+import "github.com/tiktoken-go/tokenizer/codec"
+
+var textTokenizer = codec.NewCl100kBase()
+
+// EstimateTokens 使用 cl100k_base 参考分词估算文本，不代表 Claude 分词或计费用量。
+func EstimateTokens(text string) int {
+	tokens, err := textTokenizer.Count(text)
+	if err != nil {
+		panic(err)
+	}
+	return tokens
 }
 
 // Truncate 截断到 n 字节。

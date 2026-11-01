@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"claude2api/internal/repository"
 	"claude2api/internal/service"
 )
 
@@ -188,7 +189,7 @@ func argsJSON(args map[string]any) string {
 
 // runTaggedStream 消费 Runner 的文本回调，逐分片喂给标签流式解析器，
 // 把中间事件交给 onEvent 处理。返回 completion 结果与错误。
-func runTaggedStream(endpoint, model string, prompt service.Prompt, onEvent func(TaggedStreamEvent)) (string, error) {
+func runTaggedStream(endpoint, model string, prompt service.Prompt, onEvent func(TaggedStreamEvent)) (string, repository.TextUsage, error) {
 	parser := NewTaggedStreamParser()
 	start := time.Now()
 	firstTokenMs := int64(0)
@@ -216,6 +217,6 @@ func runTaggedStream(endpoint, model string, prompt service.Prompt, onEvent func
 			onEvent(ev)
 		}
 	}
-	logCompletion(endpoint, model, true, prompt, raw, res, err, start, firstTokenMs)
-	return raw, err
+	usage := logCompletion(endpoint, model, true, prompt, raw, res, err, start, firstTokenMs)
+	return raw, usage, err
 }

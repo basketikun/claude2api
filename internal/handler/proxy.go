@@ -66,7 +66,7 @@ type proxyCtx struct {
 	mainOrig       string
 	ucOrig         string
 	usage          *repository.UsageRecord
-	inputBytes     int
+	inputTokens    int
 }
 
 type ctxKey struct{}
@@ -198,7 +198,7 @@ func proxyModifyResponse(resp *http.Response) error {
 	if isStream {
 		resp.Header.Set("Cache-Control", "no-cache")
 		if pc.usage != nil {
-			resp.Body = service.CaptureAccountUsage(resp.Body, pc.usage, pc.inputBytes)
+			resp.Body = service.CaptureAccountUsage(resp.Body, pc.usage, pc.inputTokens)
 		}
 		return nil
 	}
@@ -404,14 +404,20 @@ func ServeReverseProxy(w http.ResponseWriter, r *http.Request, onMain bool) {
 			Attachments []struct {
 				Text string `json:"extracted_content"`
 			} `json:"attachments"`
+			Styles []struct {
+				Prompt string `json:"prompt"`
+			} `json:"personalized_styles"`
 		}
 		if err := json.Unmarshal(body, &message); err != nil {
 			http.Error(w, "对话内容格式错误", http.StatusBadRequest)
 			return
 		}
-		pc.inputBytes = len(message.Prompt)
+		pc.inputTokens = utils.EstimateTokens(message.Prompt)
 		for _, attachment := range message.Attachments {
-			pc.inputBytes += len(attachment.Text)
+			pc.inputTokens += utils.EstimateTokens(attachment.Text)
+		}
+		for _, style := range message.Styles {
+			pc.inputTokens += utils.EstimateTokens(style.Prompt)
 		}
 		pc.usage = &repository.UsageRecord{Account: email, Model: message.Model, Endpoint: "mirror", CreatedAt: time.Now().UTC()}
 	}

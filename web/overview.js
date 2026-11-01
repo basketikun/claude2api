@@ -27,7 +27,7 @@ function initOverview(root, api, showMsg) {
       const metrics = [
         ["账号数", numbers.format(usage.accounts), `${numbers.format(usage.active_accounts)} 个正常账号`],
         ["请求数", numbers.format(summary.requests), `成功率 ${success}`],
-        ["总 Token · 估算", numbers.format(summary.total_tokens), `输入 ${shortNumbers.format(summary.input_tokens)} · 输出 ${shortNumbers.format(summary.output_tokens)}`],
+        ["总 Token · 估算", numbers.format(summary.total_tokens), `输入 ${shortNumbers.format(summary.input_tokens)} · 输出 ${shortNumbers.format(summary.output_tokens + summary.thinking_tokens)}`],
         ["可见思考 · 估算", numbers.format(summary.thinking_tokens), "缓存用量未提供"],
         ["平均首字", summary.first_token_samples ? `${(summary.first_token_ms / 1000).toFixed(2)} s` : "—", `${numbers.format(summary.first_token_samples)} 个有输出的请求`],
       ];
@@ -79,7 +79,7 @@ function initOverview(root, api, showMsg) {
         labels: dates,
         datasets: [
           { label: "输入估算", data: dates.map((date) => byDay.get(date)?.input_tokens ?? 0), borderColor: colors[0], backgroundColor: "#36a3cf15", fill: true, yAxisID: "tokens" },
-          { label: "输出估算", data: dates.map((date) => byDay.get(date)?.output_tokens ?? 0), borderColor: colors[1], backgroundColor: "#45a88315", fill: true, yAxisID: "tokens" },
+          { label: "回答与工具估算", data: dates.map((date) => byDay.get(date)?.output_tokens ?? 0), borderColor: colors[1], backgroundColor: "#45a88315", fill: true, yAxisID: "tokens" },
           { label: "可见思考估算", data: dates.map((date) => byDay.get(date)?.thinking_tokens ?? 0), borderColor: colors[2], yAxisID: "tokens" },
           { label: "请求数", data: dates.map((date) => byDay.get(date)?.requests ?? 0), borderColor: "#9ca6ad", borderDash: [4, 4], yAxisID: "requests" },
         ],

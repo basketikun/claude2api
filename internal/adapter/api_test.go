@@ -2,12 +2,15 @@ package adapter
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"claude2api/internal/repository"
 	"claude2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -78,6 +81,72 @@ func TestAPIContracts(t *testing.T) {
 				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestAPIUsageUsesCapturedCounts(t *testing.T) {
+	old := runner
+	runner = testRunner(func(_ string, _ service.Prompt, emit func(string)) (service.CompletionResult, error) {
+		emit("<think>visible reasoning</think>answer")
+		return service.CompletionResult{StatusCode: http.StatusOK, Usage: &repository.UsageRecord{Success: true, TextUsage: repository.TextUsage{InputTokens: 321, OutputTokens: 5, ThinkingTokens: 7}}}, nil
+	})
+	t.Cleanup(func() { runner = old })
+	for _, tc := range []struct {
+		name, body, inputKey, outputKey string
+		handler                         gin.HandlerFunc
+	}{
+		{"chat", `{"messages":[{"role":"user","content":"hi"}]}`, "prompt_tokens", "completion_tokens", OpenAIChat},
+		{"chat stream", `{"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}`, "prompt_tokens", "completion_tokens", OpenAIChat},
+		{"responses", `{"input":"hi"}`, "input_tokens", "output_tokens", OpenAIResponses},
+		{"responses stream", `{"stream":true,"input":"hi"}`, "input_tokens", "output_tokens", OpenAIResponses},
+		{"messages", `{"messages":[{"role":"user","content":"hi"}]}`, "input_tokens", "output_tokens", AnthropicMessages},
+		{"messages stream", `{"stream":true,"messages":[{"role":"user","content":"hi"}]}`, "input_tokens", "output_tokens", AnthropicMessages},
+	} {
+		for _, withTools := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/tools=%v", tc.name, withTools), func(t *testing.T) {
+				body := tc.body
+				if withTools {
+					body = body[:len(body)-1] + `,"tools":[{"type":"function","function":{"name":"weather","parameters":{"type":"object"}}}]}`
+				}
+				w := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(w)
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1", strings.NewReader(body))
+				tc.handler(c)
+				payloads := []string{w.Body.String()}
+				if strings.Contains(body, `"stream":true`) {
+					payloads = nil
+					for _, line := range strings.Split(w.Body.String(), "\n") {
+						if data, ok := strings.CutPrefix(line, "data: "); ok && data != "[DONE]" {
+							payloads = append(payloads, data)
+						}
+					}
+				}
+				var usage map[string]int
+				for _, payload := range payloads {
+					var event struct {
+						Usage    map[string]int `json:"usage"`
+						Response struct {
+							Usage map[string]int `json:"usage"`
+						} `json:"response"`
+					}
+					if err := json.Unmarshal([]byte(payload), &event); err != nil {
+						t.Fatal(err)
+					}
+					if event.Usage != nil {
+						usage = event.Usage
+					}
+					if event.Response.Usage != nil {
+						usage = event.Response.Usage
+					}
+				}
+				if w.Code != http.StatusOK || usage[tc.inputKey] != 321 || usage[tc.outputKey] != 12 {
+					t.Fatalf("未复用采集用量：%d %s", w.Code, w.Body.String())
+				}
+				if total, ok := usage["total_tokens"]; ok && total != 333 {
+					t.Fatalf("思考计数重复或遗漏：%v", usage)
+				}
+			})
+		}
 	}
 }
 

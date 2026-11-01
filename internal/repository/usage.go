@@ -10,8 +10,8 @@ import (
 // TextUsage 只估算实际可见的文本，不代表上游计费 Token。
 type TextUsage struct {
 	InputTokens    int `json:"input_tokens"`
-	OutputTokens   int `json:"output_tokens"`
-	ThinkingTokens int `json:"thinking_tokens"`
+	OutputTokens   int `json:"output_tokens"`   // 回答和工具参数，不含思考。
+	ThinkingTokens int `json:"thinking_tokens"` // 仅包含实际返回的思考文本。
 }
 
 type UsageRecord struct {

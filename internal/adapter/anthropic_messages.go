@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"claude2api/internal/repository"
 	"claude2api/internal/service"
-	"claude2api/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -183,7 +183,7 @@ func anthropicToolResultText(content any) string {
 }
 
 func anthropicNonStream(c *gin.Context, model string, prompt service.Prompt) {
-	content, ok := runNonStream(c, "messages", model, prompt)
+	content, usage, ok := runNonStream(c, "messages", model, prompt)
 	if !ok {
 		return
 	}
@@ -195,7 +195,7 @@ func anthropicNonStream(c *gin.Context, model string, prompt service.Prompt) {
 		"content":       []gin.H{{"type": "text", "text": content}},
 		"stop_reason":   "end_turn",
 		"stop_sequence": nil,
-		"usage":         gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(content))},
+		"usage":         gin.H{"input_tokens": usage.InputTokens, "output_tokens": usage.OutputTokens + usage.ThinkingTokens},
 	})
 }
 
@@ -204,14 +204,14 @@ type messageStream struct {
 	index int
 }
 
-func newMessageStream(c *gin.Context, model string, prompt service.Prompt) *messageStream {
+func newMessageStream(c *gin.Context, model string) *messageStream {
 	stream := &messageStream{newSSE(c), -1}
 	stream.event("message_start", gin.H{
 		"type": "message_start",
 		"message": gin.H{
 			"id": "msg_" + shortID(), "type": "message", "role": "assistant", "model": model,
 			"content": []any{}, "stop_reason": nil,
-			"usage": gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": 0},
+			"usage": gin.H{"input_tokens": 0, "output_tokens": 0},
 		},
 	})
 	return stream
@@ -232,18 +232,18 @@ func (s *messageStream) close() {
 	}
 }
 
-func (s *messageStream) stop(reason string, outputTokens int) {
+func (s *messageStream) stop(reason string, usage repository.TextUsage) {
 	s.event("message_delta", gin.H{
 		"type": "message_delta", "delta": gin.H{"stop_reason": reason, "stop_sequence": nil},
-		"usage": gin.H{"output_tokens": outputTokens},
+		"usage": gin.H{"input_tokens": usage.InputTokens, "output_tokens": usage.OutputTokens + usage.ThinkingTokens},
 	})
 	s.event("message_stop", gin.H{"type": "message_stop"})
 }
 
 func anthropicStream(c *gin.Context, model string, prompt service.Prompt) {
-	stream := newMessageStream(c, model, prompt)
+	stream := newMessageStream(c, model)
 	stream.open(gin.H{"type": "text", "text": ""})
-	text, err := runAndCollect("messages", model, true, prompt, func(text string) {
+	_, usage, err := runAndCollect("messages", model, true, prompt, func(text string) {
 		stream.delta(gin.H{"type": "text_delta", "text": text})
 	})
 	stop := "end_turn"
@@ -252,12 +252,12 @@ func anthropicStream(c *gin.Context, model string, prompt service.Prompt) {
 		stop = "error"
 	}
 	stream.close()
-	stream.stop(stop, utils.EstimateTokens(len(text)))
+	stream.stop(stop, usage)
 }
 
 // anthropicToolNonStream 带 tools 的非流式：解析标签协议后输出 content blocks。
 func anthropicToolNonStream(c *gin.Context, model string, prompt service.Prompt) {
-	raw, ok := runNonStream(c, "messages", model, prompt)
+	raw, usage, ok := runNonStream(c, "messages", model, prompt)
 	if !ok {
 		return
 	}
@@ -299,16 +299,16 @@ func anthropicToolNonStream(c *gin.Context, model string, prompt service.Prompt)
 		"content":       content,
 		"stop_reason":   stop,
 		"stop_sequence": nil,
-		"usage":         gin.H{"input_tokens": utils.EstimateTokens(len(prompt.Text)), "output_tokens": utils.EstimateTokens(len(raw))},
+		"usage":         gin.H{"input_tokens": usage.InputTokens, "output_tokens": usage.OutputTokens + usage.ThinkingTokens},
 	})
 }
 
 // anthropicToolStream 带 tools 的流式：把标签事件转成 Anthropic content_block 事件。
 func anthropicToolStream(c *gin.Context, model string, prompt service.Prompt) {
-	stream := newMessageStream(c, model, prompt)
+	stream := newMessageStream(c, model)
 	stopReason := "end_turn"
 
-	raw, err := runTaggedStream("messages", model, prompt, func(ev TaggedStreamEvent) {
+	_, usage, err := runTaggedStream("messages", model, prompt, func(ev TaggedStreamEvent) {
 		switch ev.Type {
 		case EventBlockStart:
 			// thinking 与 text 一律输出为 Anthropic text 块：伪协议的 <think>
@@ -337,5 +337,5 @@ func anthropicToolStream(c *gin.Context, model string, prompt service.Prompt) {
 		stream.close()
 		stopReason = "error"
 	}
-	stream.stop(stopReason, utils.EstimateTokens(len(raw)))
+	stream.stop(stopReason, usage)
 }

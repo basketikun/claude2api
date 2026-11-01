@@ -497,7 +497,7 @@ async function openDetail(email) {
     const query = new URLSearchParams({ account: email, days: 0, group: "model", offset: 0, limit: 10, timezone_offset: new Date().getTimezoneOffset() });
     const { usage } = await api(`/api/usage?${query}`);
     const stats = usage.summary;
-    rows.push(["累计对话", stats.requests.toLocaleString("zh-CN")], ["输入 Token（估算）", stats.input_tokens.toLocaleString("zh-CN")], ["输出 Token（估算）", stats.output_tokens.toLocaleString("zh-CN")], ["可见思考（估算）", stats.thinking_tokens.toLocaleString("zh-CN")], ["缓存用量", "未提供"]);
+    rows.push(["累计对话", stats.requests.toLocaleString("zh-CN")], ["输入 Token（估算）", stats.input_tokens.toLocaleString("zh-CN")], ["回答与工具（估算）", stats.output_tokens.toLocaleString("zh-CN")], ["可见思考（估算）", stats.thinking_tokens.toLocaleString("zh-CN")], ["缓存用量", "未提供"]);
   } catch (error) {
     rows.push(["累计用量", `读取失败：${error.message}`]);
   }
@@ -816,7 +816,7 @@ async function loadLogs() {
         <td class="log-request"><b>${esc(l.endpoint)} <em>${l.stream ? "流" : "非流"}</em></b><span class="mono">${esc(l.model || "—")}</span></td>
         <td class="log-account" title="${esc(l.account || "")}">${esc(l.account || "—")}</td>
         <td>${status}<span class="log-code">HTTP ${l.status_code || "—"}</span></td>
-        <td class="log-token mono"><b>${l.input_tokens || 0}</b><i>→</i><b>${l.output_tokens || 0}</b><small class="thinking-estimate">思考 ${l.thinking_tokens == null ? "未记录" : l.thinking_tokens}</small></td>
+        <td class="log-token mono"><b>${l.input_tokens || 0}</b><i>→</i><b>${(l.output_tokens || 0) + (l.thinking_tokens || 0)}</b><small class="thinking-estimate">其中可见思考 ${l.thinking_tokens == null ? "未记录" : l.thinking_tokens}</small></td>
         <td class="log-performance"><b>${fmtSeconds(l.first_token_ms)}</b><span>${Number(l.tps || 0).toFixed(1)} TPS · ${fmtSeconds(l.duration_ms)}</span></td>
         <td><button class="log-open act-log-detail" data-id="${l.id}" aria-label="查看调用 ${l.id}">查看<span>→</span></button></td>
       </tr>`;

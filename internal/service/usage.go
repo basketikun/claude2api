@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"claude2api/internal/repository"
@@ -20,14 +21,20 @@ type usageReader struct {
 }
 
 // CaptureAccountUsage 逐事件记录用量，原始响应字节保持不变。
-func CaptureAccountUsage(body io.ReadCloser, record *repository.UsageRecord, inputBytes int) io.ReadCloser {
+func CaptureAccountUsage(body io.ReadCloser, record *repository.UsageRecord, inputTokens int) io.ReadCloser {
 	reader, writer := io.Pipe()
 	stream := &usageReader{ReadCloser: body, writer: writer, done: make(chan struct{})}
 	go func() {
 		defer close(stream.done)
 		defer reader.Close()
 		decoder := ssestream.NewDecoder(&http.Response{Body: reader})
-		outputBytes, thinkingBytes := 0, 0
+		var output, thinking strings.Builder
+		flush := func() {
+			record.OutputTokens += utils.EstimateTokens(output.String())
+			record.ThinkingTokens += utils.EstimateTokens(thinking.String())
+			output.Reset()
+			thinking.Reset()
+		}
 		completed, failed := false, false
 		for decoder.Next() {
 			if len(decoder.Event().Data) == 0 {
@@ -54,19 +61,21 @@ func CaptureAccountUsage(body io.ReadCloser, record *repository.UsageRecord, inp
 			switch event.Type {
 			case "message_start":
 				record.Model = event.Message.Model
-				record.InputTokens = utils.EstimateTokens(inputBytes)
+				record.InputTokens = inputTokens
 			case "content_block_delta":
 				switch event.Delta.Type {
 				case "text_delta":
-					outputBytes += len(event.Delta.Text)
+					output.WriteString(event.Delta.Text)
 				case "thinking_delta":
-					thinkingBytes += len(event.Delta.Thinking)
+					thinking.WriteString(event.Delta.Thinking)
 				case "input_json_delta":
-					outputBytes += len(event.Delta.PartialJSON)
+					output.WriteString(event.Delta.PartialJSON)
 				}
-				if record.FirstTokenMs == 0 && outputBytes+thinkingBytes > 0 {
+				if record.FirstTokenMs == 0 && output.Len()+thinking.Len() > 0 {
 					record.FirstTokenMs = time.Since(record.CreatedAt).Milliseconds()
 				}
+			case "content_block_stop":
+				flush()
 			case "message_stop":
 				completed = true
 			case "error":
@@ -82,8 +91,7 @@ func CaptureAccountUsage(body io.ReadCloser, record *repository.UsageRecord, inp
 			failed = true
 			slog.Warn("[账号用量] 读取失败", "email", record.Account, "err", err)
 		}
-		record.OutputTokens = utils.EstimateTokens(outputBytes)
-		record.ThinkingTokens = utils.EstimateTokens(thinkingBytes)
+		flush()
 		record.Success = completed && !failed
 		record.DurationMs = time.Since(record.CreatedAt).Milliseconds()
 		if record.Endpoint == "mirror" {

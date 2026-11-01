@@ -109,7 +109,7 @@ func sanitizeSystemPrompt(text string) string {
 	return strings.TrimSpace(text)
 }
 
-func runAndCollect(endpoint, model string, stream bool, prompt service.Prompt, emit func(string)) (string, error) {
+func runAndCollect(endpoint, model string, stream bool, prompt service.Prompt, emit func(string)) (string, repository.TextUsage, error) {
 	start := time.Now()
 	firstTokenMs := int64(0)
 	firstSeen := false
@@ -133,12 +133,12 @@ func runAndCollect(endpoint, model string, stream bool, prompt service.Prompt, e
 	})
 	write(filter.push("", true))
 	text := output.String()
-	logCompletion(endpoint, model, stream, prompt, text, res, err, start, firstTokenMs)
-	return text, err
+	usage := logCompletion(endpoint, model, stream, prompt, text, res, err, start, firstTokenMs)
+	return text, usage, err
 }
 
-func runNonStream(c *gin.Context, endpoint, model string, prompt service.Prompt) (string, bool) {
-	text, err := runAndCollect(endpoint, model, false, prompt, nil)
+func runNonStream(c *gin.Context, endpoint, model string, prompt service.Prompt) (string, repository.TextUsage, bool) {
+	text, usage, err := runAndCollect(endpoint, model, false, prompt, nil)
 	if err != nil {
 		code := http.StatusBadGateway
 		var upstream *service.CompletionError
@@ -147,10 +147,10 @@ func runNonStream(c *gin.Context, endpoint, model string, prompt service.Prompt)
 		}
 		apiError(c, code, err.Error())
 	}
-	return text, err == nil
+	return text, usage, err == nil
 }
 
-func logCompletion(endpoint, model string, stream bool, prompt service.Prompt, output string, res service.CompletionResult, err error, start time.Time, firstTokenMs int64) {
+func logCompletion(endpoint, model string, stream bool, prompt service.Prompt, output string, res service.CompletionResult, err error, start time.Time, firstTokenMs int64) repository.TextUsage {
 	durationMs := time.Since(start).Milliseconds()
 	record := repository.UsageRecord{Account: res.Account, Model: model}
 	if res.Usage != nil {
@@ -183,6 +183,7 @@ func logCompletion(endpoint, model string, stream bool, prompt service.Prompt, o
 		log.Error = utils.RedactMedia(err.Error()).(string)
 	}
 	repository.InsertAPILog(log)
+	return record.TextUsage
 }
 
 type outputFilter struct {

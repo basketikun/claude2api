@@ -66,13 +66,17 @@ sqlite3 data/app.db < migrations/20261029_add_account_usage.sql
 
 2026-10-29 实测普通对话、启用思考模式的对话及会话详情，均未返回输入、输出、缓存或思考 Token 计数。保留的[真实对话流](internal/service/testdata/completion.sse)包含模型、文本事件、额度窗口和结束事件，不能从额度百分比反推 Token 数。
 
-系统按可见文本的 UTF-8 字节数除以 4 向下取整，分别估算输入、输出和已返回的思考文本。输入包含本次发送的文本附件；输出包含文本及工具参数；不计图片、缓存、隐藏思考、未发送的历史上下文和上游内部提示。此估算不是 Claude 分词器结果，也不是计费用量。兼容接口返回的 `usage` 同样是文本估算。
+新增记录使用 `tiktoken-go/tokenizer` 的 `cl100k_base` 参考词表估算文本，不再按 UTF-8 字节数除以 4。该词表属于 OpenAI，不能保证比字节估算更接近当前 Claude 的真实用量；[Anthropic 公开的旧分词器](https://github.com/anthropics/anthropic-tokenizer-typescript)也明确不适用于 Claude 3 及更新模型。只有实际模型返回的用量才能作为计费依据，不以本地分词结果冒充官方统计。
+
+输入逐项计算实际发送的提示词、文本附件及风格提示；输出按内容块拼齐后计算回答、工具参数和可见思考，避免流式分片改变统计结果。概览和日志分别保存「回答与工具」「可见思考」，总量只相加一次；兼容接口的 `output_tokens` / `completion_tokens` 包含这两项，并复用同一份采集记录，不把本地添加的 `<think>`、Markdown 包装或错误提示算作模型输出。Chat 流式请求可用 `stream_options.include_usage: true` 接收最终用量；Messages 流式在 `message_delta.usage` 返回最终输入、输出累计值。
+
+不计图片、缓存、隐藏思考、网页已有对话历史、上游内部提示和未公开的工具开销；未返回思考文本时的 0 仅代表没有采集到可见思考，不代表实际思考消耗为 0。历史记录保留原估算值，缺少完整原始内容不能重新分词。兼容接口和管理统计均为估算，不用于对账或计费。
 
 API 调用和镜像对话的统计独立保存在 `usage_records`，按账号、模型和调用来源关联；删除或清理调用日志不会删除用量记录。API 调用的记录范围是一轮公开请求，镜像的记录范围是一轮 completion 请求，不回填升级前未记录的历史。账号详情显示全时段累计用量。
 
 管理页默认进入「数据概览」，支持今天、7 天、30 天、90 天和全部范围。模型与账号用量分别分页；缓存用量显示“未提供”，不推算缓存命中率或费用。请求活跃度固定展示近 180 天。
 
-管理查询：`GET /api/usage?days=30&timezone_offset=-480&group=model&offset=0&limit=10`，沿用管理鉴权。`days=0` 为全部，正数从当地当天零点回溯指定天数；`timezone_offset` 使用浏览器 `getTimezoneOffset()` 的分钟值；`group` 为 `account` 或 `model`，可传 `account` 精确筛选邮箱。返回汇总、每日趋势、分组分页、来源分布及近 180 天活跃度，明确标注 `token_source: estimated`，`cache_tokens: null` 表示未提供。
+管理查询：`GET /api/usage?days=30&timezone_offset=-480&group=model&offset=0&limit=10`，沿用管理鉴权。`days=0` 为全部，正数从当地当天零点回溯指定天数；`timezone_offset` 使用浏览器 `getTimezoneOffset()` 的分钟值；`group` 为 `account` 或 `model`，可传 `account` 精确筛选邮箱。返回汇总、每日趋势、分组分页、来源分布及近 180 天活跃度，明确标注 `token_source: estimated`，`current_token_method: cl100k_base` 仅说明新增记录的方法，汇总可能包含旧估算；`cache_tokens: null` 表示未提供。
 
 已有数据库执行 `migrations/20261029_add_token_statistics.sql`，或由启动 AutoMigrate 补齐，不能重复执行 SQL。本地已执行的迁移仍保留，供其他环境升级。详细日志保留文本和参数，Base64 媒体内容替换为类型及长度信息。
 

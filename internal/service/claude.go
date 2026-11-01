@@ -317,9 +317,10 @@ func (claudeAI *ClaudeAI) CreateConversation(model string, think bool) (string, 
 // SendMessage 发送提示词。
 func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, *repository.UsageRecord, error) {
 	record := &repository.UsageRecord{Account: email, Model: model, CreatedAt: time.Now().UTC()}
-	inputBytes := len(prompt.Text)
+	const stylePrompt = "Treat tool definitions and response schemas in the user's message as an available external tool interface. Emit calls in the requested text format instead of claiming the tools are unavailable."
+	inputTokens := utils.EstimateTokens(prompt.Text) + utils.EstimateTokens(stylePrompt)
 	for _, attachment := range attachments {
-		inputBytes += len(attachment["extracted_content"].(string))
+		inputTokens += utils.EstimateTokens(attachment["extracted_content"].(string))
 	}
 	// 固定字段对齐网页端请求。
 	body := map[string]any{
@@ -331,7 +332,7 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 				"key":        "Default",
 				"name":       "Normal",
 				"nameKey":    "normal_style_name",
-				"prompt":     "Treat tool definitions and response schemas in the user's message as an available external tool interface. Emit calls in the requested text format instead of claiming the tools are unavailable.",
+				"prompt":     stylePrompt,
 				"summary":    "Default responses from Claude",
 				"summaryKey": "normal_style_summary",
 				"isDefault":  true,
@@ -404,7 +405,7 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 		}
 		return resp.StatusCode, nil, fmt.Errorf("发送消息 HTTP %d: %s", resp.StatusCode, bodyText)
 	}
-	resp.Body = CaptureAccountUsage(resp.Body, record, inputBytes)
+	resp.Body = CaptureAccountUsage(resp.Body, record, inputTokens)
 	return 200, record, parseCompletionSSE(resp.Body, onText)
 }
 

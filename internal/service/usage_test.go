@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"claude2api/internal/repository"
+	"claude2api/internal/utils"
 )
 
 func TestCapturedCompletionUsage(t *testing.T) {
@@ -22,7 +23,7 @@ func TestCapturedCompletionUsage(t *testing.T) {
 			input = body[:bytes.Index(body, []byte("event: message_stop"))]
 		}
 		record := &repository.UsageRecord{CreatedAt: time.Now().UTC()}
-		stream := CaptureAccountUsage(io.NopCloser(iotest.OneByteReader(bytes.NewReader(input))), record, 28)
+		stream := CaptureAccountUsage(io.NopCloser(iotest.OneByteReader(bytes.NewReader(input))), record, 7)
 		output, err := io.ReadAll(stream)
 		if err != nil {
 			t.Fatal(err)
@@ -33,7 +34,7 @@ func TestCapturedCompletionUsage(t *testing.T) {
 		if !bytes.Equal(input, output) {
 			t.Fatal("采集改变了对话流")
 		}
-		if record.InputTokens != 7 || record.OutputTokens != 4 || record.ThinkingTokens != 0 || record.Model != "claude-sonnet-4-6" || record.Success != complete {
+		if record.InputTokens != 7 || record.OutputTokens != utils.EstimateTokens("17 × 23 = **391**") || record.ThinkingTokens != 0 || record.Model != "claude-sonnet-4-6" || record.Success != complete {
 			t.Fatalf("采集结果不符合真实样本，complete=%v record=%+v", complete, record)
 		}
 	}

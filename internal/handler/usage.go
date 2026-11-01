@@ -28,5 +28,5 @@ func AdminUsage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "用量读取失败，请稍后重试"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"usage": usage, "token_source": "estimated", "token_method": "utf8_bytes_divided_by_4", "cache_tokens": nil})
+	c.JSON(http.StatusOK, gin.H{"usage": usage, "token_source": "estimated", "current_token_method": "cl100k_base", "cache_tokens": nil})
 }
