@@ -6,9 +6,14 @@
     <title>Claude2API</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.css" />
     <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/i18n.js"></script>
   </head>
   <body>
     <section class="view view-login hidden">
+      <div class="lang-toggle" translate="no" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+      </div>
       <div class="login-shell">
         <div class="box">
           <a class="login-brand" href="/" aria-label="Claude2API 首页">
@@ -55,6 +60,10 @@
           <button class="nav-item" data-page="system">系统管理</button>
         </nav>
         <div class="nav-foot">
+          <div class="lang-toggle" translate="no" role="group" aria-label="Language">
+            <button type="button" data-lang="en" aria-pressed="false">EN</button>
+            <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+          </div>
           <div class="project-links">
             <a class="github-link nav-link" href="https://github.com/basketikun/claude2api" target="_blank" rel="noopener noreferrer"><img src="/static/github.svg" alt="" width="17" height="17">GitHub</a>
             <button id="app-version" type="button" class="version-link nav-link" aria-haspopup="dialog" aria-controls="version-dialog" title="查看版本更新记录"><span id="app-version-text">读取版本…</span><i id="version-update-dot" class="hidden" aria-hidden="true"></i></button>
