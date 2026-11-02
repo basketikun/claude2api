@@ -7,6 +7,9 @@ function initOverview(root, api, showMsg) {
   const dayFormat = new Intl.DateTimeFormat("sv-SE");
   const colors = ["#36a3cf", "#45a883", "#9181dd", "#d4a45a"];
   const sourceNames = { "chat/completions": "Chat 对话", responses: "Responses 对话", messages: "Claude 对话", mirror: "网页对话" };
+  // Canvas text is not in the DOM, so route it through the i18n helper.
+  const tl = (text) => (window.i18n ? window.i18n.t(text) : text);
+  const chartLabels = ["输入估算", "回答与工具估算", "可见思考估算", "请求数"];
   let days = 30;
   let group = "model";
   const pages = { model: 1, account: 1 };
@@ -78,10 +81,10 @@ function initOverview(root, api, showMsg) {
       data: {
         labels: dates,
         datasets: [
-          { label: "输入估算", data: dates.map((date) => byDay.get(date)?.input_tokens ?? 0), borderColor: colors[0], backgroundColor: "#36a3cf15", fill: true, yAxisID: "tokens" },
-          { label: "回答与工具估算", data: dates.map((date) => byDay.get(date)?.output_tokens ?? 0), borderColor: colors[1], backgroundColor: "#45a88315", fill: true, yAxisID: "tokens" },
-          { label: "可见思考估算", data: dates.map((date) => byDay.get(date)?.thinking_tokens ?? 0), borderColor: colors[2], yAxisID: "tokens" },
-          { label: "请求数", data: dates.map((date) => byDay.get(date)?.requests ?? 0), borderColor: "#9ca6ad", borderDash: [4, 4], yAxisID: "requests" },
+          { label: tl(chartLabels[0]), data: dates.map((date) => byDay.get(date)?.input_tokens ?? 0), borderColor: colors[0], backgroundColor: "#36a3cf15", fill: true, yAxisID: "tokens" },
+          { label: tl(chartLabels[1]), data: dates.map((date) => byDay.get(date)?.output_tokens ?? 0), borderColor: colors[1], backgroundColor: "#45a88315", fill: true, yAxisID: "tokens" },
+          { label: tl(chartLabels[2]), data: dates.map((date) => byDay.get(date)?.thinking_tokens ?? 0), borderColor: colors[2], yAxisID: "tokens" },
+          { label: tl(chartLabels[3]), data: dates.map((date) => byDay.get(date)?.requests ?? 0), borderColor: "#9ca6ad", borderDash: [4, 4], yAxisID: "requests" },
         ],
       },
       options: {
@@ -91,7 +94,7 @@ function initOverview(root, api, showMsg) {
         plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 6, font: { size: 11 } } } },
         scales: {
           x: { grid: { display: false }, ticks: { maxTicksLimit: 8, callback: (value) => dates[value].slice(5) } },
-          tokens: { beginAtZero: true, grid: { color: "#80808012" }, ticks: { callback: (value) => shortNumbers.format(value) } },
+          tokens: { beginAtZero: true, grid: { color: "#80808012" }, ticks: { callback: (value) => tl(shortNumbers.format(value)) } },
           requests: { beginAtZero: true, position: "right", grid: { display: false }, ticks: { precision: 0 } },
         },
       },
@@ -117,6 +120,12 @@ function initOverview(root, api, showMsg) {
     $("#overview-activity-total").innerHTML = `<strong>${numbers.format(rows.reduce((sum, row) => sum + row.requests, 0))}</strong><span>次请求</span>`;
   }
 
+  document.addEventListener("claude2api:langchange", () => {
+    if (!chart) return;
+    chart.data.datasets.forEach((dataset, index) => { dataset.label = tl(chartLabels[index]); });
+    chart.update();
+    chart.resize();
+  });
   $("#overview-refresh").addEventListener("click", load);
   $(".overview-ranges").addEventListener("click", (event) => {
     const button = event.target.closest("[data-days]");
