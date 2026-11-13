@@ -44,6 +44,7 @@ const AUTH_TOKEN_KEY = "claude2api_credential";
 const AUTH_ROLE_KEY = "claude2api_role";
 let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
 let authRole = localStorage.getItem(AUTH_ROLE_KEY) || "";
+let cookieAuth = false;
 
 function saveAuth(token, role) {
   authToken = token;
@@ -54,6 +55,7 @@ function saveAuth(token, role) {
 
 function clearAuth() {
   authToken = authRole = "";
+  cookieAuth = false;
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_ROLE_KEY);
 }
@@ -1528,7 +1530,7 @@ function initPool(poolRoot) {
 }
 
 function resolvePage() {
-  if (!authRole || !authToken) return { page: "login", role: "guest" };
+  if (!authRole || (!authToken && !cookieAuth)) return { page: "login", role: "guest" };
   return {
     page: "admin",
     role: authRole,
@@ -1536,7 +1538,16 @@ function resolvePage() {
   };
 }
 
-function boot() {
+async function boot() {
+  if (!authRole || !authToken) {
+    try {
+      const s = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" }).then((r) => r.json());
+      if (s && s.authenticated && s.role) {
+        authRole = s.role;
+        cookieAuth = true;
+      }
+    } catch {}
+  }
   const { page, role, initialPage } = resolvePage();
   document.body.dataset.page = page;
   document.body.dataset.role = role;

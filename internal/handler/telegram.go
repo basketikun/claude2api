@@ -61,6 +61,22 @@ func widgetEnabled(cfg config.Settings) bool {
 	return strings.TrimSpace(cfg.TelegramBotToken) != "" && strings.TrimSpace(cfg.TelegramBotName) != ""
 }
 
+// AuthSession 检查当前请求是否携带有效的认证 Cookie 或 Bearer 凭据。
+func AuthSession(c *gin.Context) {
+	cred := middleware.RequestCredential(c.Request)
+	if cred != "" {
+		if middleware.AdminCredentialValid(cred) {
+			c.JSON(http.StatusOK, gin.H{"authenticated": true, "role": "admin"})
+			return
+		}
+		if middleware.PoolCredentialValid(cred) {
+			c.JSON(http.StatusOK, gin.H{"authenticated": true, "role": "pool"})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"authenticated": false, "role": "guest"})
+}
+
 // TelegramInfo 供前端渲染登录按钮（优先新版 OIDC，其次旧版 Login Widget）。
 func TelegramInfo(c *gin.Context) {
 	cfg := config.Get()

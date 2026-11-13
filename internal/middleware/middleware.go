@@ -20,7 +20,7 @@ func AdminAuth() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		credential := bearerToken(c.GetHeader("Authorization"))
+		credential := RequestCredential(c.Request)
 		if AdminCredentialValid(credential) {
 			c.Next()
 			return
