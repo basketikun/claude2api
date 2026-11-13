@@ -25,6 +25,11 @@ type Settings struct {
 	MaxChatHistoryLength       int    `json:"max_chat_history_length" yaml:"max_history_length"`
 	RemoveInvalidAccount       bool   `json:"remove_invalid_account" yaml:"remove_invalid_account"`
 	DetailedAPILog             bool   `json:"detailed_api_log" yaml:"detailed_api_log"`
+	// Telegram 登录（Login Widget）。BotToken 留空即关闭；BotName 是 @BotFather 里的 username（不带 @）。
+	TelegramBotToken   string `json:"-" yaml:"telegram_bot_token"`
+	TelegramBotName    string `json:"telegram_bot_name" yaml:"telegram_bot_name"`
+	TelegramAllowedIDs string `json:"telegram_allowed_ids" yaml:"telegram_allowed_ids"`
+	TelegramAuthMaxAge int    `json:"telegram_auth_max_age" yaml:"telegram_auth_max_age"`
 }
 
 var (

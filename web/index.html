@@ -1,8 +1,10 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-type="software">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="page-type" content="software" />
+    <meta name="site-kind" content="software" />
     <title>Claude2API</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.css" />
     <link rel="stylesheet" href="/static/style.css" />
@@ -30,6 +32,9 @@
             <button id="btn" type="submit">继续</button>
             <div class="err" id="err" role="alert"></div>
           </form>
+          <div class="login-divider"><span>或</span></div>
+          <div id="tg-login" class="tg-login hidden"></div>
+          <p class="login-hint">Telegram 登录需先在 BotFather 绑定本域名</p>
         </div>
       </div>
     </section>
@@ -213,6 +218,7 @@
                   <th>邮箱</th>
                   <th>状态</th>
                   <th>套餐</th>
+                  <th>出口</th>
                   <th class="account-usage-cell">5 小时用量</th>
                   <th class="account-usage-cell">7 天用量</th>
                   <th>创建日期</th>
@@ -415,6 +421,7 @@
               <div class="chat-composer">
                 <div id="chat-attachments" class="chat-attachments"></div>
                 <textarea
+                  placeholder="每行一个 sessionKey；要绑定专属住宅出口写成 sk-ant-xxx|socks5://user:pass@host:1080"
                   id="test-message"
                   class="inp chat-input"
                   rows="3"

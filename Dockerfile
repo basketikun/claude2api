@@ -1,4 +1,7 @@
 FROM golang:1.25-alpine AS builder
+# 国内网络下 proxy.golang.org 常常 TLS 超时，允许用 build-arg 切镜像源
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

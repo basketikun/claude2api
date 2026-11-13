@@ -19,6 +19,9 @@ import (
 func NewMainEngine() *gin.Engine {
 	r := gin.Default()
 	r.GET("/api/version", handler.AppVersion)
+	r.GET("/api/auth/telegram/config", handler.TelegramInfo)
+	r.GET("/api/auth/telegram", handler.TelegramLogin)
+	r.POST("/api/auth/telegram", handler.TelegramLogin)
 	r.GET("/api/changelog", handler.AppChangelog)
 
 	admin := r.Group("/api")
@@ -29,6 +32,7 @@ func NewMainEngine() *gin.Engine {
 	admin.GET("/accounts", handler.AdminAccounts)
 	admin.POST("/accounts/import", handler.AdminImportAccounts)
 	admin.POST("/accounts/refresh", handler.AdminRefreshAccount)
+	admin.POST("/accounts/proxy", handler.AdminSetAccountProxy)
 	admin.GET("/config", handler.AdminGetConfig)
 	admin.POST("/config", handler.AdminUpdateConfig)
 	admin.POST("/delete", handler.AdminDeleteAccount)

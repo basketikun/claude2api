@@ -20,6 +20,9 @@ type Account struct {
 	UsageUpdatedAt   *time.Time        `json:"usage_updated_at"`
 	Models           []AccountModel    `json:"models" gorm:"serializer:json;type:text"`
 	ModelsUpdatedAt  *time.Time        `json:"models_updated_at"`
+	// Proxy 是该账号专属出口（socks5://user:pass@host:port 或 http://…）。
+	// 为空时回落到全局 config.proxy，用于「一个账号对应一条住宅代理」。
+	Proxy string `json:"proxy" gorm:"column:proxy;size:255"`
 }
 
 type AccountModel struct {
@@ -65,7 +68,7 @@ func AccountByEmail(email string) *Account {
 func UpsertAccount(a *Account) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "email"}},
-		DoUpdates: clause.AssignmentColumns([]string{"org_uuid", "cookies", "status", "subscription_plan", "updated_at", "models", "models_updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"org_uuid", "cookies", "status", "subscription_plan", "updated_at", "models", "models_updated_at", "proxy"}),
 	}).Create(a).Error
 }
 

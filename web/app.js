@@ -259,12 +259,12 @@ function renderTable() {
   const rows = filteredAccounts();
 
   if (!ACCOUNTS.length) {
-    body.innerHTML = `<tr><td colspan="10" class="empty">暂无账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty">暂无账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="10" class="empty">没有符合条件的账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty">没有符合条件的账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
@@ -280,6 +280,7 @@ function renderTable() {
       <td class="mono">${esc(a.email)}</td>
       <td>${statusBadge(a.status)}</td>
       <td><span class="account-plan" title="${esc(a.subscription_plan)}">${esc(accountPlanText(a.subscription_plan))}</span></td>
+      <td class="account-proxy-cell"><button class="proxy-chip act-proxy" title="${esc(a.proxy || "使用全局出口")}">${a.proxy ? esc(shortProxy(a.proxy)) : "全局"}</button></td>
       <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "5h")}</td>
       <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "7d")}</td>
       <td class="mono">${esc(fmtTime(a.created_at) || "—")}</td>
@@ -294,6 +295,16 @@ function renderTable() {
     .join("");
 
   renderPager(rows.length, totalPages);
+}
+
+// shortProxy 只显示出口的 host:port，完整串放在 title 里。
+function shortProxy(p) {
+  try {
+    const u = new URL(p.replace(/^socks5h?:\/\//, "socks5://").replace(/^http:\/\//, "http://"));
+    return (u.hostname || p).slice(0, 22);
+  } catch (e) {
+    return String(p).slice(0, 22);
+  }
 }
 
 function renderPager(total, totalPages) {
@@ -887,7 +898,7 @@ async function loadLogs() {
     renderLogsPager();
   } catch (e) {
     $("#logs-stats").textContent = "";
-    body.innerHTML = `<tr><td colspan="10" class="empty">加载失败：${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty">加载失败：${esc(e.message)}</td></tr>`;
     updateLogSelection();
   }
 }
@@ -1058,6 +1069,50 @@ $("#account-models").addEventListener("click", (e) => {
     () => showMsg("复制失败，请手动选择", "err"),
   );
 });
+
+// 每号出口：点表格里的代理胶囊即可编辑
+$("#accounts-body").addEventListener("click", async (e) => {
+  const btn = e.target.closest(".act-proxy");
+  if (!btn) return;
+  const tr = btn.closest("tr");
+  const email = tr && tr.dataset.email;
+  if (!email) return;
+  const acc = ACCOUNTS.find((a) => a.email === email) || {};
+  const next = window.prompt(
+    `${email}\n\n输入专属住宅代理（留空 = 使用全局出口）：\nsocks5://user:pass@host:1080`,
+    acc.proxy || ""
+  );
+  if (next === null) return;
+  try {
+    await api("/api/accounts/proxy", "POST", { email, proxy: next.trim() });
+    await refreshAccountsPage();
+  } catch (err) {
+    toast(`保存失败：${err.message || err}`);
+  }
+});
+
+// Telegram 登录（服务端未配置时按钮不显示）
+(async function initTelegramLogin() {
+  const host = $("#tg-login");
+  if (!host) return;
+  try {
+    const r = await fetch("/api/auth/telegram/config").then((x) => x.json());
+    if (!r || !r.enabled) return;
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = "https://telegram.org/js/telegram-widget.js?22";
+    s.setAttribute("data-telegram-login", r.bot_name);
+    s.setAttribute("data-size", "large");
+    s.setAttribute("data-radius", "10");
+    s.setAttribute("data-userpic", "false");
+    s.setAttribute("data-request-access", "write");
+    s.setAttribute("data-auth-url", `${location.origin}/api/auth/telegram`);
+    host.appendChild(s);
+    host.classList.remove("hidden");
+  } catch (e) {
+    /* 静默：没配置就不显示 */
+  }
+})();
 
 $("#btn-refresh").addEventListener("click", refreshAccountsPage);
 $("#btn-refresh-all").addEventListener("click", refreshAllAccounts);

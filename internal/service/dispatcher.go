@@ -99,7 +99,7 @@ func (Dispatcher) Complete(reqModel string, prompt Prompt, onText func(string)) 
 		}
 		email := acct.Email
 		res.Account = email
-		lease := clientFor(acct, s.Proxy)
+		lease := clientFor(acct, AccountProxy(acct))
 		lease.Lock()
 		client := lease.ClaudeAI
 		if !lease.ready {
