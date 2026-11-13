@@ -102,8 +102,12 @@ func APIKey() gin.HandlerFunc {
 		if token == "" {
 			token = strings.TrimSpace(c.GetHeader("x-api-key"))
 		}
-		// 后台在线测试可复用管理密码。
+		// 后台在线测试可复用管理密码或管理员登录态 Cookie。
 		if pw := config.Get().AdminPassword; pw != "" && token == pw {
+			c.Next()
+			return
+		}
+		if token == "" && AdminCredentialValid(RequestCredential(c.Request)) {
 			c.Next()
 			return
 		}

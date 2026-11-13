@@ -357,10 +357,11 @@ async function loadAccounts() {
 }
 
 async function fetchModels() {
+  const headers = {};
+  if (authToken) headers.Authorization = "Bearer " + authToken;
   const res = await fetch("/v1/models", {
-    headers: {
-      Authorization: "Bearer " + authToken,
-    },
+    credentials: "same-origin",
+    headers,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
@@ -733,12 +734,12 @@ async function sendTestChat() {
   renderChat();
   const started = performance.now();
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (key) headers.Authorization = "Bearer " + key;
     const res = await fetch("/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + key,
-      },
+      credentials: "same-origin",
+      headers,
       body: JSON.stringify({
         model,
         stream: true,
