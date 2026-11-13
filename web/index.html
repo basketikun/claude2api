@@ -696,6 +696,37 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/js/tom-select.base.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@18.1.2/lib/marked.umd.js"></script>
+  <script>
+    // Telegram 登录按钮：独立于 app.js，避免主脚本提前中断时登录入口消失
+    (function () {
+      var cfg = null;
+      async function ensure() {
+        var host = document.getElementById("tg-login");
+        if (!host || host.dataset.tg === "1") return;
+        if (cfg === null) {
+          try { cfg = await fetch("/api/auth/telegram/config").then(function (r) { return r.json(); }); }
+          catch (e) { cfg = { enabled: false }; }
+        }
+        if (!cfg || !cfg.enabled) return;
+        host.dataset.tg = "1";
+        var s = document.createElement("script");
+        s.async = true;
+        s.src = "https://telegram.org/js/telegram-widget.js?22";
+        s.setAttribute("data-telegram-login", cfg.bot_name);
+        s.setAttribute("data-size", "large");
+        s.setAttribute("data-radius", "10");
+        s.setAttribute("data-userpic", "false");
+        s.setAttribute("data-request-access", "write");
+        s.setAttribute("data-auth-url", location.origin + "/api/auth/telegram");
+        s.onerror = function () { host.dataset.tg = ""; };
+        host.appendChild(s);
+        host.classList.remove("hidden");
+      }
+      ensure();
+      setInterval(ensure, 1000);
+      document.addEventListener("DOMContentLoaded", ensure);
+    })();
+  </script>
     <script src="/static/overview.js"></script>
     <script src="/static/app.js"></script>
   </body>

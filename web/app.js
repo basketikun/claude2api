@@ -1071,7 +1071,7 @@ $("#account-models").addEventListener("click", (e) => {
 });
 
 // 每号出口：点表格里的代理胶囊即可编辑
-$("#accounts-body").addEventListener("click", async (e) => {
+$("#acc-body").addEventListener("click", async (e) => {
   const btn = e.target.closest(".act-proxy");
   if (!btn) return;
   const tr = btn.closest("tr");
@@ -1091,28 +1091,36 @@ $("#accounts-body").addEventListener("click", async (e) => {
   }
 });
 
-// Telegram 登录（服务端未配置时按钮不显示）
-(async function initTelegramLogin() {
-  const host = $("#tg-login");
-  if (!host) return;
-  try {
-    const r = await fetch("/api/auth/telegram/config").then((x) => x.json());
-    if (!r || !r.enabled) return;
-    const s = document.createElement("script");
-    s.async = true;
-    s.src = "https://telegram.org/js/telegram-widget.js?22";
-    s.setAttribute("data-telegram-login", r.bot_name);
-    s.setAttribute("data-size", "large");
-    s.setAttribute("data-radius", "10");
-    s.setAttribute("data-userpic", "false");
-    s.setAttribute("data-request-access", "write");
-    s.setAttribute("data-auth-url", `${location.origin}/api/auth/telegram`);
-    host.appendChild(s);
-    host.classList.remove("hidden");
-  } catch (e) {
-    /* 静默：没配置就不显示 */
+// Telegram 登录（服务端未配置时按钮不显示）。
+// 登录视图可能被 app 重新渲染，所以用幂等函数 + 定时器持续兜底。
+let TG_CFG = null;
+async function tgEnsure() {
+  const host = document.getElementById("tg-login");
+  if (!host || host.dataset.tg === "1") return;
+  if (TG_CFG === null) {
+    try {
+      TG_CFG = await fetch("/api/auth/telegram/config").then((x) => x.json());
+    } catch (e) {
+      TG_CFG = { enabled: false };
+    }
   }
-})();
+  if (!TG_CFG || !TG_CFG.enabled) return;
+  host.dataset.tg = "1";
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = "https://telegram.org/js/telegram-widget.js?22";
+  s.setAttribute("data-telegram-login", TG_CFG.bot_name);
+  s.setAttribute("data-size", "large");
+  s.setAttribute("data-radius", "10");
+  s.setAttribute("data-userpic", "false");
+  s.setAttribute("data-request-access", "write");
+  s.setAttribute("data-auth-url", `${location.origin}/api/auth/telegram`);
+  s.onerror = () => { host.dataset.tg = ""; };
+  host.appendChild(s);
+  host.classList.remove("hidden");
+}
+tgEnsure();
+setInterval(tgEnsure, 1000);
 
 $("#btn-refresh").addEventListener("click", refreshAccountsPage);
 $("#btn-refresh-all").addEventListener("click", refreshAllAccounts);
