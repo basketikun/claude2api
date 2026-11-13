@@ -20,6 +20,8 @@ func NewMainEngine() *gin.Engine {
 	r := gin.Default()
 	r.GET("/api/version", handler.AppVersion)
 	r.GET("/api/auth/telegram/config", handler.TelegramInfo)
+	r.GET("/api/auth/telegram/login", handler.TelegramOIDCStart)
+	r.GET("/api/auth/telegram/callback", handler.TelegramOIDCCallback)
 	r.GET("/api/auth/telegram", handler.TelegramLogin)
 	r.POST("/api/auth/telegram", handler.TelegramLogin)
 	r.GET("/api/changelog", handler.AppChangelog)
