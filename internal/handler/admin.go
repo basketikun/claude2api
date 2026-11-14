@@ -23,6 +23,7 @@ func AdminAccounts(c *gin.Context) {
 
 // AdminImportAccounts 批量导入账号。
 func AdminImportAccounts(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
 	var body struct {
 		SessionKeys string `json:"session_keys"`
 	}
@@ -32,8 +33,8 @@ func AdminImportAccounts(c *gin.Context) {
 	}
 
 	items := parseImportItems(body.SessionKeys)
-	if len(items) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "没有可导入的 sessionKey"})
+	if len(items) == 0 || len(items) > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionKey 数量必须为 1 到 100"})
 		return
 	}
 	h := c.Writer.Header()
@@ -198,7 +199,11 @@ func AdminGetConfig(c *gin.Context) {
 func AdminUpdateConfig(c *gin.Context) {
 	var patch map[string]any
 	_ = c.ShouldBindJSON(&patch)
-	cfg := config.Update(patch)
+	cfg, err := config.Update(patch)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	slog.Info("[配置] 已更新配置项", "keys", configKeys(patch))
 	c.JSON(http.StatusOK, gin.H{"config": cfg})
 }

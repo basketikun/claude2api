@@ -3,6 +3,7 @@ package repository
 import (
 	"time"
 
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -74,12 +75,18 @@ func UpsertAccount(a *Account) error {
 
 // UpdateAccount 修改指定账号。
 func UpdateAccount(email string, mutate func(*Account)) bool {
-	a := AccountByEmail(email)
-	if a == nil {
+	if db == nil {
 		return false
 	}
-	mutate(a)
-	return db.Omit("Usage", "UsageUpdatedAt").Save(a).Error == nil
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var a Account
+		if err := tx.Where("email = ?", email).First(&a).Error; err != nil {
+			return err
+		}
+		mutate(&a)
+		return tx.Omit("Usage", "UsageUpdatedAt").Save(&a).Error
+	})
+	return err == nil
 }
 
 // UpdateAccountUsage 只更新额度，避免与账号刷新互相覆盖。

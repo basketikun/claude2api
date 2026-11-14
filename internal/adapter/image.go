@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -71,6 +72,12 @@ func downloadImage(source string) ([]byte, error) {
 			return nil, err
 		}
 		transport.Proxy = http.ProxyURL(proxy)
+	} else {
+		pinned, err := pinnedDialer(target.Hostname())
+		if err != nil {
+			return nil, err
+		}
+		transport.DialContext = pinned
 	}
 	client := &http.Client{Transport: transport, Timeout: 30 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
@@ -92,6 +99,34 @@ func downloadImage(source string) ([]byte, error) {
 		return nil, fmt.Errorf("读取图片失败: %w", err)
 	}
 	return validateImage(raw)
+}
+
+func pinnedDialer(host string) (func(context.Context, string, string) (net.Conn, error), error) {
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil, fmt.Errorf("解析图片域名失败: %w", err)
+	}
+	allowed := make([]net.IP, 0, len(ips))
+	for _, ip := range ips {
+		if ip.IsGlobalUnicast() && !ip.IsPrivate() {
+			allowed = append(allowed, ip)
+		}
+	}
+	if len(allowed) == 0 {
+		return nil, fmt.Errorf("图片 URL 不允许访问内网地址")
+	}
+	return func(ctx context.Context, _, port string) (net.Conn, error) {
+		d := net.Dialer{Timeout: 15 * time.Second}
+		var last error
+		for _, ip := range allowed {
+			conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), port))
+			if err == nil {
+				return conn, nil
+			}
+			last = err
+		}
+		return nil, last
+	}, nil
 }
 
 func publicImageURL(raw string) (*url.URL, error) {

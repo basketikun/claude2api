@@ -118,14 +118,7 @@ func decodeArgs(arguments string) any {
 func mustJSON(value any) []byte { data, _ := json.Marshal(value); return data }
 
 func formatOpenAITaggedAnswer(parsed TaggedOutput) string {
-	parts := []string{}
-	if parsed.Thinking != "" {
-		parts = append(parts, "<think>"+parsed.Thinking+"</think>")
-	}
-	if parsed.FinalAnswer != "" {
-		parts = append(parts, parsed.FinalAnswer)
-	}
-	return strings.Join(parts, "\n\n")
+	return parsed.FinalAnswer
 }
 
 // parseTools 把 json 原文解析为 []map[string]any。

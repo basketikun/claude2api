@@ -39,6 +39,7 @@ type Runner interface {
 var runner Runner = service.Dispatcher{}
 
 func bindRequest(c *gin.Context, out any) (json.RawMessage, error) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, MaxAPIBodyBytes)
 	raw, err := c.GetRawData()
 	if err == nil {
 		err = json.Unmarshal(raw, out)
@@ -173,14 +174,17 @@ func logCompletion(endpoint, model string, stream bool, prompt service.Prompt, o
 		log.TPS = float64(outputTokens) * 1000 / float64(generationMs)
 	}
 	if config.Get().DetailedAPILog {
-		request, logErr := utils.RequestLog(prompt.RawRequest)
-		if logErr != nil {
-			slog.Error("[调用日志] 请求脱敏失败", "err", logErr)
+		// Detailed mode records bounded metadata only; prompts, tool results, and responses stay out of SQLite.
+		meta := map[string]any{
+			"redacted":       true,
+			"request_bytes":  len(prompt.RawRequest),
+			"response_bytes": len(output),
 		}
-		log.Request, log.Response = request, utils.RedactMedia(output).(string)
+		log.Request, _ = json.Marshal(meta)
+		log.Response = "[REDACTED]"
 	}
 	if err != nil {
-		log.Error = utils.RedactMedia(err.Error()).(string)
+		log.Error = utils.RedactText(utils.RedactMedia(err.Error()).(string), 2000)
 	}
 	repository.InsertAPILog(log)
 	return record.TextUsage

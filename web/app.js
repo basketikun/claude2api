@@ -35,7 +35,7 @@ function renderAccountUsage(account, key) {
   const tone = pending ? "pending" : window.utilization >= 1 ? "full" : window.utilization >= 0.8 ? "high" : "normal";
   const time = reset.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
   return `<div class="account-usage ${tone}">
-    <div class="account-usage-head"><strong>${esc(percent)}</strong><time datetime="${reset.toISOString()}" title="${esc(`${time} 重置${pending ? "，已到重置时间，等待新对话更新用量" : ""}`)}">${pending ? "待更新" : `${esc(time)}重置`}</time></div>
+    <div class="account-usage-head"><strong>${esc(percent)}</strong><time datetime="${reset.toISOString()}" title="${esc(`${time} 重置${pending ? "，已到重置时间，等待新对话更新用量" : ""}`)}">${pending ? "待更新" : `${esc(time)} 重置`}</time></div>
     <progress max="1" value="${window.utilization}" aria-label="${key === "5h" ? "5 小时" : "7 天"}已用 ${esc(percent)}${pending ? "，已到重置时间，待更新" : ""}"></progress>
   </div>`;
 }
@@ -278,17 +278,17 @@ function renderTable() {
 
   body.innerHTML = pageRows
     .map((a, i) => `<tr data-email="${esc(a.email)}">
-      <td>${start + i + 1}</td>
-      <td class="mono">${esc(a.email)}</td>
-      <td>${statusBadge(a.status)}</td>
-      <td><span class="account-plan" title="${esc(a.subscription_plan)}">${esc(accountPlanText(a.subscription_plan))}</span></td>
-      <td class="account-proxy-cell"><button class="proxy-chip act-proxy" title="${esc(a.proxy || "使用全局出口")}">${a.proxy ? esc(shortProxy(a.proxy)) : "全局"}</button></td>
-      <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "5h")}</td>
-      <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "7d")}</td>
-      <td class="mono">${esc(fmtTime(a.created_at) || "—")}</td>
-      <td>${esc(fmtSurvived(a.created_at))}</td>
-      <td class="mono">${esc(fmtTime(a.updated_at) || "—")}</td>
-      <td>
+      <td class="col-idx" data-label="#">${start + i + 1}</td>
+      <td class="mono col-email" data-label="邮箱">${esc(a.email)}</td>
+      <td data-label="状态">${statusBadge(a.status)}</td>
+      <td data-label="套餐"><span class="account-plan" title="${esc(a.subscription_plan)}">${esc(accountPlanText(a.subscription_plan))}</span></td>
+      <td class="account-proxy-cell" data-label="出口"><button class="proxy-chip act-proxy" title="${esc(a.proxy || "使用全局出口")}">${a.proxy ? esc(shortProxy(a.proxy)) : "全局"}</button></td>
+      <td class="account-usage-cell" data-label="5 小时" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "5h")}</td>
+      <td class="account-usage-cell" data-label="7 天" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "7d")}</td>
+      <td class="mono col-time" data-label="创建" title="${esc(fmtTime(a.created_at) || "")}">${esc((fmtTime(a.created_at) || "—").slice(0, 16))}</td>
+      <td data-label="已存活">${esc(fmtSurvived(a.created_at))}</td>
+      <td class="mono col-time" data-label="刷新" title="${esc(fmtTime(a.updated_at) || "")}">${esc((fmtTime(a.updated_at) || "—").slice(0, 16))}</td>
+      <td class="col-act" data-label="操作">
         <button class="btn-sm act-refresh">刷新</button>
         <button class="btn-sm act-detail">详情</button>
         <button class="btn-sm btn-danger act-del">删除</button>
@@ -784,7 +784,11 @@ function switchPage(name) {
   if (currentRole !== "admin" && name !== "pool") return;
   document
     .querySelectorAll(".nav-item")
-    .forEach((b) => b.classList.toggle("active", b.dataset.page === (name === "log-detail" ? "logs" : name)));
+    .forEach((b) => {
+      const on = b.dataset.page === (name === "log-detail" ? "logs" : name);
+      b.classList.toggle("active", on);
+      if (on) b.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
   document
     .querySelectorAll(".page")
     .forEach((p) => p.classList.toggle("hidden", p.id !== "page-" + name));
@@ -813,8 +817,7 @@ async function loadKeys() {
       <tr data-id="${k.id}">
         <td>${i + 1}</td>
         <td>${esc(k.name || "—")}</td>
-        <td><div class="key-cell"><span class="k">${esc(k.key)}</span>
-          <button class="btn-sm act-copy">复制</button></div></td>
+        <td><div class="key-cell"><code class="k">${esc(k.prefix || "sk-…")}</code></div></td>
         <td class="mono">${esc(fmtTime(k.created_at) || "—")}</td>
         <td><button class="btn-sm btn-danger act-key-del">删除</button></td>
       </tr>`,
@@ -830,11 +833,16 @@ async function createKey() {
   const value = $("#key-value").value.trim();
   $("#btn-key-create").disabled = true;
   try {
-    await api("/api/keys", "POST", { name, key: value });
+    const created = await api("/api/keys", "POST", { name, key: value });
     $("#key-name").value = "";
     $("#key-value").value = "";
     await loadKeys();
-    showMsg("密钥已创建", "ok");
+    if (created.key?.key) {
+      const box = $("#key-created");
+      box.textContent = `新密钥仅显示一次：${created.key.key}`;
+      box.classList.remove("hidden");
+    }
+    showMsg("密钥已创建，请立即保存新密钥", "ok");
   } catch (e) {
     showMsg("创建密钥失败: " + e.message, "err");
   } finally {

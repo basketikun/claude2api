@@ -35,6 +35,7 @@ const claudeAIUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
 type ClaudeAI struct {
 	orgUUID  string
 	client   tlsclient.HttpClient
+	initErr  error
 	headers  map[string]string
 	modeMu   sync.Mutex
 	modeSet  bool
@@ -48,13 +49,20 @@ func NewClaudeAI(sessionKey, proxy, identity string, orgUUID ...string) *ClaudeA
 		tlsclient.WithClientProfile(profiles.Chrome_146),
 		tlsclient.WithTimeoutSeconds(3000),
 		tlsclient.WithCookieJar(jar),
-		tlsclient.WithInsecureSkipVerify(),
 	)
 	if err != nil {
-		client, _ = tlsclient.NewHttpClient(tlsclient.NewNoopLogger())
+		// Never fall back to an unverified or partially initialized client.
+		return &ClaudeAI{client: nil, initErr: fmt.Errorf("初始化上游客户端失败: %w", err), headers: BuildHeaders(identity)}
 	}
 	if proxy != "" {
-		_ = client.SetProxy(proxy)
+		if err := client.SetProxy(proxy); err != nil {
+			// A configured proxy is a routing boundary; fail closed rather than
+			// silently sending session credentials directly.
+			return &ClaudeAI{client: nil, initErr: fmt.Errorf("配置上游代理失败: %w", err), headers: BuildHeaders(identity)}
+		}
+	}
+	if client == nil {
+		return &ClaudeAI{client: nil, initErr: fmt.Errorf("上游客户端未正确初始化"), headers: BuildHeaders(identity)}
 	}
 	if u, parseErr := url.Parse(claudeAIBaseURL); parseErr == nil {
 		client.SetCookies(u, []*fhttp.Cookie{{Name: "sessionKey", Value: sessionKey, Domain: "claude.ai"}})
@@ -67,6 +75,9 @@ func NewClaudeAI(sessionKey, proxy, identity string, orgUUID ...string) *ClaudeA
 }
 
 func (claudeAI *ClaudeAI) request(method, target string, body io.Reader) (*fhttp.Request, error) {
+	if claudeAI.initErr != nil {
+		return nil, claudeAI.initErr
+	}
 	req, err := fhttp.NewRequest(method, target, body)
 	if err != nil {
 		return nil, err
@@ -320,7 +331,9 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 	const stylePrompt = "Treat tool definitions and response schemas in the user's message as an available external tool interface. Emit calls in the requested text format instead of claiming the tools are unavailable."
 	inputTokens := utils.EstimateTokens(prompt.Text) + utils.EstimateTokens(stylePrompt)
 	for _, attachment := range attachments {
-		inputTokens += utils.EstimateTokens(attachment["extracted_content"].(string))
+		if content, ok := attachment["extracted_content"].(string); ok {
+			inputTokens += utils.EstimateTokens(content)
+		}
 	}
 	// 固定字段对齐网页端请求。
 	body := map[string]any{
@@ -462,12 +475,9 @@ func parseCompletionSSE(raw io.Reader, onText func(string)) error {
 		case "text_delta":
 			emit(ev.Delta.Text)
 		case "thinking_delta":
-			s := ev.Delta.Thinking
-			if !thinkingShown {
-				s = "<think> " + s
-				thinkingShown = true
-			}
-			emit(s)
+			// Internal reasoning is never part of the public assistant text.
+			// Keep it out of all protocol adapters to avoid leaking chain-of-thought.
+			continue
 		case "input_json_delta":
 			text := ev.Delta.PartialJSON
 			// 跳过工具参数，只输出 content。

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // 标签工具协议（tagged tool protocol）：claude.ai 网页端只能输出纯文本，
@@ -439,7 +440,7 @@ func (p *TaggedStreamParser) onChar(events *[]TaggedStreamEvent, char rune) {
 			return
 		}
 		if char == '<' {
-			p.emitRaw(events, value[:len(value)-1])
+			p.emitRaw(events, value[:len(value)-utf8.RuneLen(char)])
 			p.tagBuf.Reset()
 			p.tagBuf.WriteByte('<')
 			return

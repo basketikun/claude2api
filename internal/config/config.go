@@ -98,7 +98,7 @@ func ensureConfig(path string) {
 		slog.Warn("[配置] 未找到 config.yaml，也无 config.example.yaml 可复制，使用内置默认值", "err", err)
 		return
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		slog.Warn("[配置] 复制 config.example.yaml 失败，使用内置默认值", "err", err)
 		return
 	}
@@ -115,14 +115,25 @@ func DBPath() string {
 	return filepath.Join(DataDir(), "app.db")
 }
 
-func writeConfig() {
-	data, _ := yaml.Marshal(&current)
-	_ = os.WriteFile(configPath, data, 0o644)
+func writeConfig() error {
+	data, err := yaml.Marshal(&current)
+	if err != nil {
+		return err
+	}
+	tmp := configPath + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, configPath)
 }
 
-func Update(patch map[string]any) Settings {
+func Update(patch map[string]any) (Settings, error) {
 	currentMu.Lock()
 	defer currentMu.Unlock()
+	previous := current
 	for k, v := range patch {
 		switch k {
 		case "proxy":
@@ -143,8 +154,28 @@ func Update(patch map[string]any) Settings {
 			current.DetailedAPILog = mustBool(v)
 		}
 	}
-	writeConfig()
-	return current
+	if err := validate(&current); err != nil {
+		current = previous
+		return current, err
+	}
+	if err := writeConfig(); err != nil {
+		current = previous
+		return current, err
+	}
+	return current, nil
+}
+
+func validate(s *Settings) error {
+	if s.StatusCheckIntervalSeconds < 60 || s.StatusCheckIntervalSeconds > 7*24*3600 {
+		return fmt.Errorf("status_check_interval_seconds out of range")
+	}
+	if s.RetryCount < 0 || s.RetryCount > 8 {
+		return fmt.Errorf("retry_count out of range")
+	}
+	if s.MaxChatHistoryLength < 100 || s.MaxChatHistoryLength > 1000000 {
+		return fmt.Errorf("max_chat_history_length out of range")
+	}
+	return nil
 }
 
 func mustAtoi(v any) int {

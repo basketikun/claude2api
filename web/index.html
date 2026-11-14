@@ -24,8 +24,11 @@
             <input
               id="credential"
               type="password"
-              placeholder="请输入密码或访问密钥"
+              placeholder="管理密码或 sk-…"
               autocomplete="current-password"
+              autocapitalize="off"
+              spellcheck="false"
+              enterkeyhint="go"
               required
               autofocus
             />
@@ -171,8 +174,8 @@
           <div class="toolbar">
             <button id="btn-refresh" class="btn">刷新</button>
             <button id="btn-refresh-all" class="btn">一键刷新</button>
-            <button id="btn-import" class="btn">批量导入</button>
-            <button id="btn-del-expired" class="btn">删除失效</button>
+            <button id="btn-import" class="btn btn-primary">批量导入</button>
+            <button id="btn-del-expired" class="btn btn-danger">删除失效</button>
           </div>
           <div id="refresh-all-progress" class="task-progress hidden">
             <div><span>正在刷新账号</span><span class="task-progress-text"></span></div>
@@ -204,7 +207,7 @@
               <input
                 id="search"
                 type="search"
-                placeholder="搜索邮箱 / 组织…"
+                placeholder="搜索邮箱…"
                 class="search-inp"
               />
             </div>
@@ -276,6 +279,7 @@
                 新建密钥
               </button>
             </div>
+            <div id="key-created" class="key-created hidden" role="status"></div>
             <table class="acc-table" style="margin-top: 16px">
               <thead>
                 <tr>

@@ -9,6 +9,16 @@ import (
 
 var mediaDataURI = regexp.MustCompile(`data:[^;,\s]+;base64,[A-Za-z0-9+/=_-]+`)
 
+var sensitiveValue = regexp.MustCompile(`(?i)(authorization|x-api-key|api[_-]?key|sessionKey|password|token|secret)(["' ]*[:=]["' ]?)[^,\s}"']+`)
+
+func RedactText(text string, max int) string {
+	text = sensitiveValue.ReplaceAllString(text, `$1$2[REDACTED]`)
+	if max > 0 && len(text) > max {
+		return text[:max] + "…[TRUNCATED]"
+	}
+	return text
+}
+
 func RequestLog(raw json.RawMessage) (json.RawMessage, error) {
 	var value any
 	if err := json.Unmarshal(raw, &value); err != nil {
