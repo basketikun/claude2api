@@ -17,5 +17,6 @@ func main() {
 	}
 	defer repository.CloseDB()
 	service.StartAccountStatusMonitor()
+	service.StartConnectionKeeper()
 	router.RunServer()
 }

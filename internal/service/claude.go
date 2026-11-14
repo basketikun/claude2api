@@ -45,10 +45,15 @@ type ClaudeAI struct {
 // NewClaudeAI 构造 Claude Web 客户端。
 func NewClaudeAI(sessionKey, proxy, identity string, orgUUID ...string) *ClaudeAI {
 	jar, _ := cookiejar.New(nil)
+	// Residential exits often stall 10-20s on a fresh SOCKS handshake. Keep the
+	// per-account HTTP/2 connection idle far longer than the default 90s so the
+	// connection keeper (keepalive.go) can hold it open between pool rotations.
+	idle := 15 * time.Minute
 	client, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(),
 		tlsclient.WithClientProfile(profiles.Chrome_146),
 		tlsclient.WithTimeoutSeconds(3000),
 		tlsclient.WithCookieJar(jar),
+		tlsclient.WithTransportOptions(&tlsclient.TransportOptions{IdleConnTimeout: &idle}),
 	)
 	if err != nil {
 		// Never fall back to an unverified or partially initialized client.
