@@ -23,13 +23,11 @@ import (
 
 const taggedToolPromptParallel = `Write the AI assistant's next response using only the following XML-like tags:
 
-- <think>...</think>
 - <tool_calls>[{"name":"ToolName","arguments":{...}}]</tool_calls>
 - <final_answer>...</final_answer>
 
 Rules:
-- You may output one or more <think> blocks.
-- You must then output exactly one terminal block: either <tool_calls> or <final_answer>.
+- Output exactly one block: either <tool_calls> or <final_answer>.
 - Do not output any text outside these tags.
 - In <tool_calls>, the content must be a valid JSON array. Each item must be an object with keys "name" and "arguments".
 - If you need only one tool, still use <tool_calls> with an array of length 1.
@@ -41,13 +39,11 @@ Rules:
 
 const taggedToolPromptSingle = `Write the AI assistant's next response using only the following XML-like tags:
 
-- <think>...</think>
 - <tool_call>{"name":"ToolName","arguments":{...}}</tool_call>
 - <final_answer>...</final_answer>
 
 Rules:
-- You may output one or more <think> blocks.
-- You must then output exactly one terminal block: either <tool_call> or <final_answer>.
+- Output exactly one block: either <tool_call> or <final_answer>.
 - Do not output any text outside these tags.
 - In <tool_call>, the content must be a valid JSON object with keys "name" and "arguments".
 - In string values inside <tool_call>, you must escape quotes, backslashes, and newlines exactly as JSON requires.
