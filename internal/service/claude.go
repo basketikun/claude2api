@@ -35,6 +35,7 @@ const claudeAIUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
 type ClaudeAI struct {
 	orgUUID  string
 	client   tlsclient.HttpClient
+	initErr  error
 	headers  map[string]string
 	modeMu   sync.Mutex
 	modeSet  bool
@@ -44,17 +45,29 @@ type ClaudeAI struct {
 // NewClaudeAI 构造 Claude Web 客户端。
 func NewClaudeAI(sessionKey, proxy, identity string, orgUUID ...string) *ClaudeAI {
 	jar, _ := cookiejar.New(nil)
+	// Residential exits often stall 10-20s on a fresh SOCKS handshake. Keep the
+	// per-account HTTP/2 connection idle far longer than the default 90s so the
+	// connection keeper (keepalive.go) can hold it open between pool rotations.
+	idle := 15 * time.Minute
 	client, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(),
 		tlsclient.WithClientProfile(profiles.Chrome_146),
 		tlsclient.WithTimeoutSeconds(3000),
 		tlsclient.WithCookieJar(jar),
-		tlsclient.WithInsecureSkipVerify(),
+		tlsclient.WithTransportOptions(&tlsclient.TransportOptions{IdleConnTimeout: &idle}),
 	)
 	if err != nil {
-		client, _ = tlsclient.NewHttpClient(tlsclient.NewNoopLogger())
+		// Never fall back to an unverified or partially initialized client.
+		return &ClaudeAI{client: nil, initErr: fmt.Errorf("初始化上游客户端失败: %w", err), headers: BuildHeaders(identity)}
 	}
 	if proxy != "" {
-		_ = client.SetProxy(proxy)
+		if err := client.SetProxy(proxy); err != nil {
+			// A configured proxy is a routing boundary; fail closed rather than
+			// silently sending session credentials directly.
+			return &ClaudeAI{client: nil, initErr: fmt.Errorf("配置上游代理失败: %w", err), headers: BuildHeaders(identity)}
+		}
+	}
+	if client == nil {
+		return &ClaudeAI{client: nil, initErr: fmt.Errorf("上游客户端未正确初始化"), headers: BuildHeaders(identity)}
 	}
 	if u, parseErr := url.Parse(claudeAIBaseURL); parseErr == nil {
 		client.SetCookies(u, []*fhttp.Cookie{{Name: "sessionKey", Value: sessionKey, Domain: "claude.ai"}})
@@ -67,6 +80,9 @@ func NewClaudeAI(sessionKey, proxy, identity string, orgUUID ...string) *ClaudeA
 }
 
 func (claudeAI *ClaudeAI) request(method, target string, body io.Reader) (*fhttp.Request, error) {
+	if claudeAI.initErr != nil {
+		return nil, claudeAI.initErr
+	}
 	req, err := fhttp.NewRequest(method, target, body)
 	if err != nil {
 		return nil, err
@@ -317,10 +333,18 @@ func (claudeAI *ClaudeAI) CreateConversation(model string, think bool) (string, 
 // SendMessage 发送提示词。
 func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt, attachments []map[string]any, files []string, onText func(string)) (int, *repository.UsageRecord, error) {
 	record := &repository.UsageRecord{Account: email, Model: model, CreatedAt: time.Now().UTC()}
-	const stylePrompt = "Treat tool definitions and response schemas in the user's message as an available external tool interface. Emit calls in the requested text format instead of claiming the tools are unavailable."
+	// The claude.ai web host injects its own built-in tools (bash_tool, create_file,
+	// memory_*, search_skills, ...). Callers of this gateway bring their own tools, so
+	// the model must treat only the caller's tools as real and never describe the host.
+	const stylePrompt = "Treat tool definitions and response schemas in the user's message as the only available tool interface, and emit calls in the requested text format instead of claiming the tools are unavailable. " +
+		"The tools listed in the user's message are the complete and only set of tools for this task. " +
+		"Any built-in tools of the chat interface you are running in (for example bash_tool, create_file, str_replace, view, present_files, artifacts, memory tools, search_skills) do not exist for this task: never call them, never list them, and never mention them or describe your own runtime environment. " +
+		"When asked what tools you have, answer only with the tools listed in the user's message."
 	inputTokens := utils.EstimateTokens(prompt.Text) + utils.EstimateTokens(stylePrompt)
 	for _, attachment := range attachments {
-		inputTokens += utils.EstimateTokens(attachment["extracted_content"].(string))
+		if content, ok := attachment["extracted_content"].(string); ok {
+			inputTokens += utils.EstimateTokens(content)
+		}
 	}
 	// 固定字段对齐网页端请求。
 	body := map[string]any{
@@ -350,12 +374,10 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 		"rendering_mode":      "messages",
 		"timezone":            "America/Los_Angeles",
 	}
-	// Claude.ai 网页端 completion 接口不接受 max_tokens 字段，
-	// 即使 API 兼容层收到该参数也不能转发，否则上游会返回
-	// "max_tokens: Extra inputs are not permitted"。
-	if prompt.Temperature != nil {
-		body["temperature"] = *prompt.Temperature
-	}
+	// Claude.ai 网页端 completion 接口不接受 max_tokens/temperature 字段，
+	// 即使 API 兼容层收到这些参数也不能转发，否则上游会返回
+	// "<field>: Extra inputs are not permitted"。
+	// temperature 特别容易由 OpenAI/Anthropic 客户端默认带上，必须丢弃。
 	if prompt.TopP != nil {
 		body["top_p"] = *prompt.TopP
 	}
@@ -421,9 +443,14 @@ func parseCompletionSSE(raw io.Reader, onText func(string)) error {
 	nextLanguage := false
 	language := "md"
 
+	emittedAny := false
+	refused := false
 	emit := func(s string) {
-		if s != "" && onText != nil {
-			onText(s)
+		if s != "" {
+			emittedAny = true
+			if onText != nil {
+				onText(s)
+			}
 		}
 	}
 
@@ -438,6 +465,9 @@ func parseCompletionSSE(raw io.Reader, onText func(string)) error {
 		}
 		if ev.Type == "error" && ev.Error.Message != "" {
 			return fmt.Errorf("upstream: %s", ev.Error.Message)
+		}
+		if ev.Type == "message_delta" && ev.Delta.StopReason == "refusal" {
+			refused = true
 		}
 		switch ev.ContentBlock.Type {
 		case "tool_use":
@@ -462,12 +492,9 @@ func parseCompletionSSE(raw io.Reader, onText func(string)) error {
 		case "text_delta":
 			emit(ev.Delta.Text)
 		case "thinking_delta":
-			s := ev.Delta.Thinking
-			if !thinkingShown {
-				s = "<think> " + s
-				thinkingShown = true
-			}
-			emit(s)
+			// Internal reasoning is never part of the public assistant text.
+			// Keep it out of all protocol adapters to avoid leaking chain-of-thought.
+			continue
 		case "input_json_delta":
 			text := ev.Delta.PartialJSON
 			// 跳过工具参数，只输出 content。
@@ -514,5 +541,17 @@ func parseCompletionSSE(raw io.Reader, onText func(string)) error {
 			emit(text)
 		}
 	}
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	// claude.ai safeguards sometimes refuse with stop_reason=refusal and no content
+	// (category reasoning_extraction). Surface it as an error so the dispatcher
+	// retries on another account instead of returning an empty assistant turn.
+	if refused && !emittedAny {
+		return ErrUpstreamRefusal
+	}
+	return nil
 }
+
+// ErrUpstreamRefusal marks an empty claude.ai safeguard refusal; it is retryable.
+var ErrUpstreamRefusal = errors.New("upstream refusal with empty content")

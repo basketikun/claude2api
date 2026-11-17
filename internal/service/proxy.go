@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -18,22 +19,34 @@ type ProxyRoundTripper struct {
 }
 
 func NewProxyRoundTripper() *ProxyRoundTripper {
-	hc, _ := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(),
+	hc, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(),
 		tlsclient.WithClientProfile(profiles.Chrome_146),
 		// 长超时避免镜像 SSE 被代理 CONNECT 截断。
 		tlsclient.WithTimeoutSeconds(3600),
-		tlsclient.WithInsecureSkipVerify(),
 		tlsclient.WithNotFollowRedirects())
+	if err != nil {
+		return &ProxyRoundTripper{proxy: config.Get().Proxy}
+	}
 	hc.SetCookieJar(nil)
 	p := &ProxyRoundTripper{hc: hc, proxy: config.Get().Proxy}
-	_ = hc.SetProxy(p.proxy)
+	if p.proxy != "" {
+		if err := hc.SetProxy(p.proxy); err != nil {
+			p.hc = nil
+		}
+	}
 	return p
 }
 
 func (p *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if p.hc == nil {
+		return nil, fmt.Errorf("上游代理未正确初始化")
+	}
 	p.mu.Lock()
 	if proxy := config.Get().Proxy; proxy != p.proxy {
-		_ = p.hc.SetProxy(proxy)
+		if err := p.hc.SetProxy(proxy); err != nil {
+			p.mu.Unlock()
+			return nil, fmt.Errorf("更新上游代理失败: %w", err)
+		}
 		p.proxy = proxy
 	}
 	p.mu.Unlock()

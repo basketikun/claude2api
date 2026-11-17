@@ -20,7 +20,7 @@ func AdminAuth() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		credential := bearerToken(c.GetHeader("Authorization"))
+		credential := RequestCredential(c.Request)
 		if AdminCredentialValid(credential) {
 			c.Next()
 			return
@@ -56,13 +56,19 @@ func PoolAuth() gin.HandlerFunc {
 
 // SetAuthCookie 保存登录凭据。
 func SetAuthCookie(c *gin.Context, credential string) {
-	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
-	c.SetCookie(AuthCookieName, credential, 86400, "/", "", secure, true)
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: AuthCookieName, Value: credential, Path: "/", MaxAge: 86400,
+		Secure: secure, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func ClearAuthCookie(c *gin.Context) {
-	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
-	c.SetCookie(AuthCookieName, "", -1, "/", "", secure, true)
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: AuthCookieName, Value: "", Path: "/", MaxAge: -1,
+		Secure: secure, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // SetAuthResponseCookie 同步 artifact 登录凭据。
@@ -102,8 +108,12 @@ func APIKey() gin.HandlerFunc {
 		if token == "" {
 			token = strings.TrimSpace(c.GetHeader("x-api-key"))
 		}
-		// 后台在线测试可复用管理密码。
+		// 后台在线测试可复用管理密码或管理员登录态 Cookie。
 		if pw := config.Get().AdminPassword; pw != "" && token == pw {
+			c.Next()
+			return
+		}
+		if token == "" && AdminCredentialValid(RequestCredential(c.Request)) {
 			c.Next()
 			return
 		}

@@ -260,11 +260,7 @@ func openAIToolNonStream(c *gin.Context, model string, prompt service.Prompt) {
 				},
 			})
 		}
-		if parsed.Thinking != "" {
-			message["content"] = "<think>" + parsed.Thinking + "</think>"
-		} else {
-			message["content"] = nil
-		}
+		message["content"] = nil
 		message["tool_calls"] = toolCalls
 		finish = "tool_calls"
 	} else {
@@ -301,15 +297,18 @@ func openAIToolStream(c *gin.Context, model string, prompt service.Prompt, inclu
 			stream.send(gin.H{"role": "assistant", "content": ""}, nil)
 		case EventBlockStart:
 			if ev.BlockType == BlockThinking {
-				stream.send(gin.H{"content": "<think>"}, nil)
+				return
 			}
 		case EventBlockDelta:
+			if ev.BlockType == BlockThinking {
+				return
+			}
 			if ev.Text != "" {
 				stream.send(gin.H{"content": ev.Text}, nil)
 			}
 		case EventBlockEnd:
 			if ev.BlockType == BlockThinking {
-				stream.send(gin.H{"content": "</think>"}, nil)
+				return
 			}
 		case EventToolCall:
 			stopReason = "tool_calls"

@@ -1,11 +1,13 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-type="software">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="page-type" content="software" />
+    <meta name="site-kind" content="software" />
     <title>Claude2API</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.css" />
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/style.css?v=20261113c" />
   </head>
   <body>
     <section class="view view-login hidden">
@@ -22,14 +24,20 @@
             <input
               id="credential"
               type="password"
-              placeholder="请输入密码或访问密钥"
+              placeholder="管理密码或 sk-…"
               autocomplete="current-password"
+              autocapitalize="off"
+              spellcheck="false"
+              enterkeyhint="go"
               required
               autofocus
             />
             <button id="btn" type="submit">继续</button>
             <div class="err" id="err" role="alert"></div>
           </form>
+          <div class="login-divider"><span>或</span></div>
+          <div id="tg-login" class="tg-login hidden"></div>
+          <p id="tg-login-hint" class="login-hint hidden"></p>
         </div>
       </div>
     </section>
@@ -166,8 +174,8 @@
           <div class="toolbar">
             <button id="btn-refresh" class="btn">刷新</button>
             <button id="btn-refresh-all" class="btn">一键刷新</button>
-            <button id="btn-import" class="btn">批量导入</button>
-            <button id="btn-del-expired" class="btn">删除失效</button>
+            <button id="btn-import" class="btn btn-primary">批量导入</button>
+            <button id="btn-del-expired" class="btn btn-danger">删除失效</button>
           </div>
           <div id="refresh-all-progress" class="task-progress hidden">
             <div><span>正在刷新账号</span><span class="task-progress-text"></span></div>
@@ -199,7 +207,7 @@
               <input
                 id="search"
                 type="search"
-                placeholder="搜索邮箱 / 组织…"
+                placeholder="搜索邮箱…"
                 class="search-inp"
               />
             </div>
@@ -213,6 +221,7 @@
                   <th>邮箱</th>
                   <th>状态</th>
                   <th>套餐</th>
+                  <th>出口</th>
                   <th class="account-usage-cell">5 小时用量</th>
                   <th class="account-usage-cell">7 天用量</th>
                   <th>创建日期</th>
@@ -270,6 +279,7 @@
                 新建密钥
               </button>
             </div>
+            <div id="key-created" class="key-created hidden" role="status"></div>
             <table class="acc-table" style="margin-top: 16px">
               <thead>
                 <tr>
@@ -415,6 +425,7 @@
               <div class="chat-composer">
                 <div id="chat-attachments" class="chat-attachments"></div>
                 <textarea
+                  placeholder="每行一个 sessionKey；要绑定专属住宅出口写成 sk-ant-xxx|socks5://user:pass@host:1080"
                   id="test-message"
                   class="inp chat-input"
                   rows="3"
@@ -689,7 +700,60 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/js/tom-select.base.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@18.1.2/lib/marked.umd.js"></script>
-    <script src="/static/overview.js"></script>
-    <script src="/static/app.js"></script>
+  <script>
+    // Telegram 登录按钮：支持新版 OIDC (client_id+secret) 与旧版 Login Widget
+    (function () {
+      var cfg = null;
+      async function ensure() {
+        var host = document.getElementById("tg-login");
+        var hint = document.getElementById("tg-login-hint");
+        if (!host || host.dataset.tg === "1" || host.dataset.tg === "loading") return;
+        host.dataset.tg = "loading";
+        if (cfg === null) {
+          try { cfg = await fetch("/api/auth/telegram/config").then(function (r) { return r.json(); }); }
+          catch (e) { cfg = { enabled: false }; }
+        }
+        if (!cfg || !cfg.enabled) { host.dataset.tg = ""; return; }
+        host.dataset.tg = "1";
+        host.innerHTML = "";
+        if (cfg.mode === "oidc") {
+          var a = document.createElement("a");
+          a.className = "tg-oidc-btn";
+          a.href = cfg.login_url || "/api/auth/telegram/login";
+          a.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+            '<path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/>' +
+            "</svg><span>使用 Telegram 登录</span>";
+          host.appendChild(a);
+          if (hint) {
+            hint.textContent = "Telegram OIDC · 回调地址: " + location.origin + "/api/auth/telegram/callback";
+            hint.classList.remove("hidden");
+          }
+        } else {
+          var s = document.createElement("script");
+          s.async = true;
+          s.src = "https://telegram.org/js/telegram-widget.js?22";
+          s.setAttribute("data-telegram-login", cfg.bot_name);
+          s.setAttribute("data-size", "large");
+          s.setAttribute("data-radius", "10");
+          s.setAttribute("data-userpic", "false");
+          s.setAttribute("data-request-access", "write");
+          s.setAttribute("data-auth-url", location.origin + "/api/auth/telegram");
+          s.onerror = function () { host.dataset.tg = ""; };
+          host.appendChild(s);
+          if (hint) {
+            hint.textContent = "Telegram 登录需先在 BotFather 绑定本域名";
+            hint.classList.remove("hidden");
+          }
+        }
+        host.classList.remove("hidden");
+      }
+      ensure();
+      setInterval(ensure, 1000);
+      document.addEventListener("DOMContentLoaded", ensure);
+    })();
+  </script>
+    <script src="/static/overview.js?v=20261113c"></script>
+    <script src="/static/app.js?v=20261113c"></script>
   </body>
 </html>

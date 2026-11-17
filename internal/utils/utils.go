@@ -8,7 +8,7 @@ var textTokenizer = codec.NewCl100kBase()
 func EstimateTokens(text string) int {
 	tokens, err := textTokenizer.Count(text)
 	if err != nil {
-		panic(err)
+		return 0
 	}
 	return tokens
 }

@@ -274,3 +274,24 @@ Codex CLI 可通过自定义 OpenAI Base URL 使用 `/v1/responses`，Claude Cod
 学 AI，上 L 站：[Linux.do](https://linux.do)
 
 交流群：点击链接加入群聊【开源无限画布(2群)】：https://qm.qq.com/q/Shgvco7XEu
+
+## 本 fork 的改动
+
+- **一个账号一条住宅代理**：`accounts.proxy` 字段（`socks5://user:pass@host:port`），为空回落全局 `proxy`。
+  导入支持 `sessionKey|socks5://user:pass@host:1080`，后台账号表新增「出口」列，点胶囊即可改。
+- **Telegram OAuth 登录**：Login Widget + HMAC 校验 + user id 白名单（留空即拒绝所有），
+  配置项 `telegram_bot_token / telegram_bot_name / telegram_allowed_ids / telegram_auth_max_age`。
+- **Docker 构建**：`ARG GOPROXY`（默认 `https://goproxy.cn,direct`），解决国内 `proxy.golang.org` TLS 超时。
+- **界面**：按 tasteskill 的设计规范重做视觉层（统一 token、等宽内容边、2px 抬升动效、无玻璃拟态）。
+
+### 多出口部署建议
+
+同一出口上的账号数控制在 3–5 个以内，注册与调用走同一条出口；一个出口一个实例最稳，
+单实例内用 `accounts.proxy` 分配也能工作。示例：
+
+```bash
+# 导入并绑定出口
+curl -s -X POST http://127.0.0.1:8787/api/accounts/import \
+  -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+  -d '{"session_keys":"sk-ant-sid02-xxx|socks5://u:p@1.2.3.4:1080"}'
+```

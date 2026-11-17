@@ -111,9 +111,8 @@ func normalizeAnthropicMessages(msgs []anthropicMessage) ([]Message, []string) {
 					textParts = append(textParts, t)
 				}
 			case "thinking":
-				if t, ok := b["thinking"].(string); ok && t != "" {
-					textParts = append(textParts, t)
-				}
+				// Do not flatten untrusted/replayed reasoning into the prompt.
+				continue
 			case "image":
 				if src, ok := b["source"].(map[string]any); ok {
 					media, _ := src["media_type"].(string)
@@ -266,12 +265,7 @@ func anthropicToolNonStream(c *gin.Context, model string, prompt service.Prompt)
 	parsed := ParseTaggedOutputTolerant(raw)
 
 	content := make([]gin.H, 0, 2)
-	// <think> 是我们注入的伪协议脚手架，真实 Anthropic thinking 块需要 signature，
-	// 直接当 thinking 输出会被 Claude Code 拒绝（Content block is not a text block），
-	// 因此统一渲染为普通 text 块。
-	if parsed.Thinking != "" {
-		content = append(content, gin.H{"type": "text", "text": parsed.Thinking})
-	}
+	// Internal reasoning is deliberately omitted from public content.
 	stop := "end_turn"
 	if parsed.IsToolCall() {
 		for _, tc := range parsed.ToolCalls {
@@ -311,15 +305,19 @@ func anthropicToolStream(c *gin.Context, model string, prompt service.Prompt) {
 	_, usage, err := runTaggedStream("messages", model, prompt, func(ev TaggedStreamEvent) {
 		switch ev.Type {
 		case EventBlockStart:
-			// thinking 与 text 一律输出为 Anthropic text 块：伪协议的 <think>
-			// 没有 signature，若作为 thinking 块会被 Claude Code 拒绝。
+			if ev.BlockType == BlockThinking {
+				return
+			}
 			stream.open(gin.H{"type": "text", "text": ""})
 		case EventBlockDelta:
-			if ev.Text == "" {
+			if ev.BlockType == BlockThinking || ev.Text == "" {
 				return
 			}
 			stream.delta(gin.H{"type": "text_delta", "text": ev.Text})
 		case EventBlockEnd:
+			if ev.BlockType == BlockThinking {
+				return
+			}
 			stream.close()
 		case EventToolCall:
 			stopReason = "tool_use"

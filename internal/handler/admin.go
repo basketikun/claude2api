@@ -23,6 +23,7 @@ func AdminAccounts(c *gin.Context) {
 
 // AdminImportAccounts 批量导入账号。
 func AdminImportAccounts(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
 	var body struct {
 		SessionKeys string `json:"session_keys"`
 	}
@@ -31,9 +32,9 @@ func AdminImportAccounts(c *gin.Context) {
 		return
 	}
 
-	items := parseImportSessionKeys(body.SessionKeys)
-	if len(items) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "没有可导入的 sessionKey"})
+	items := parseImportItems(body.SessionKeys)
+	if len(items) == 0 || len(items) > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionKey 数量必须为 1 到 100"})
 		return
 	}
 	h := c.Writer.Header()
@@ -59,21 +60,47 @@ func AdminImportAccounts(c *gin.Context) {
 	slog.Info("[导入] 批量导入完成", "total", len(items), "imported", imported, "failed", failed)
 }
 
-func parseImportSessionKeys(text string) []string {
+// importItem 一条导入记录：sessionKey + 可选专属出口。
+type importItem struct {
+	SessionKey string
+	Proxy      string
+}
+
+// parseImportItems 支持三种写法（每行一条）：
+//
+//	sk-ant-sid02-xxxx
+//	sk-ant-sid02-xxxx|socks5://user:pass@1.2.3.4:1080
+//	sk-ant-sid02-xxxx socks5://user:pass@1.2.3.4:1080
+func parseImportItems(text string) []importItem {
 	seen := map[string]bool{}
-	items := []string{}
-	for _, key := range strings.Fields(text) {
-		if !seen[key] {
-			seen[key] = true
-			items = append(items, key)
+	items := []importItem{}
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
 		}
+		var key, proxy string
+		if i := strings.Index(line, "|"); i >= 0 {
+			key, proxy = strings.TrimSpace(line[:i]), strings.TrimSpace(line[i+1:])
+		} else {
+			parts := strings.Fields(line)
+			key = parts[0]
+			constraints := strings.TrimSpace(strings.TrimPrefix(line, key))
+			constraints = strings.TrimPrefix(constraints, "proxy=")
+			proxy = strings.TrimSpace(constraints)
+		}
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		items = append(items, importItem{SessionKey: key, Proxy: proxy})
 	}
 	return items
 }
 
 type importResult struct{ email, err string }
 
-func importAccounts(items []string) <-chan importResult {
+func importAccounts(items []importItem) <-chan importResult {
 	results := make(chan importResult, len(items))
 	go func() {
 		defer close(results)
@@ -81,11 +108,16 @@ func importAccounts(items []string) <-chan importResult {
 		// ponytail: 固定 10 并发，上游限流变化时再改为配置项。
 		sem := make(chan struct{}, 10)
 		slog.Info("[导入] 批量导入开始", "total", len(items))
-		for _, key := range items {
+		for _, it := range items {
 			wg.Go(func() {
 				sem <- struct{}{}
 				defer func() { <-sem }()
-				client := service.NewClaudeAI(key, config.Get().Proxy, key)
+				key, proxy := it.SessionKey, it.Proxy
+				effective := proxy
+				if effective == "" {
+					effective = config.Get().Proxy
+				}
+				client := service.NewClaudeAI(key, effective, key)
 				info, err := client.GetUserInfo()
 				if err != nil || info == nil || info.Email == "" {
 					slog.Warn("[导入] 查询账号信息失败", "err", err)
@@ -97,7 +129,7 @@ func importAccounts(items []string) <-chan importResult {
 					return
 				}
 				now := time.Now().UTC()
-				if err := repository.UpsertAccount(&repository.Account{Email: info.Email, OrgUUID: info.OrgUUID, Cookies: map[string]string{"sessionKey": key}, Status: "active", SubscriptionPlan: info.SubscriptionPlan, Models: info.Models, ModelsUpdatedAt: &now}); err != nil {
+				if err := repository.UpsertAccount(&repository.Account{Email: info.Email, OrgUUID: info.OrgUUID, Cookies: map[string]string{"sessionKey": key}, Status: "active", SubscriptionPlan: info.SubscriptionPlan, Models: info.Models, ModelsUpdatedAt: &now, Proxy: proxy}); err != nil {
 					slog.Warn("[导入] 保存账号失败", "email", info.Email, "err", err)
 					results <- importResult{email: info.Email, err: "保存账号失败"}
 					return
@@ -111,6 +143,38 @@ func importAccounts(items []string) <-chan importResult {
 }
 
 // AdminRefreshAccount 刷新账号。
+// AdminSetAccountProxy 设置/清除单个账号的专属出口。
+func AdminSetAccountProxy(c *gin.Context) {
+	var body struct {
+		Email string `json:"email"`
+		Proxy string `json:"proxy"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		return
+	}
+	email := strings.TrimSpace(body.Email)
+	proxy := strings.TrimSpace(body.Proxy)
+	if email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 email"})
+		return
+	}
+	if proxy != "" && !strings.Contains(proxy, "://") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "proxy 需要带协议前缀，如 socks5://user:pass@host:1080"})
+		return
+	}
+	if !repository.UpdateAccount(email, func(a *repository.Account) { a.Proxy = proxy }) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "账号不存在"})
+		return
+	}
+	slog.Info("[账号] 设置专属出口", "email", email, "proxy", proxy)
+	if acc := repository.AccountByEmail(email); acc != nil {
+		c.JSON(http.StatusOK, gin.H{"account": service.PublicAccountView(acc)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func AdminRefreshAccount(c *gin.Context) {
 	var body struct {
 		Email string `json:"email"`
@@ -135,7 +199,11 @@ func AdminGetConfig(c *gin.Context) {
 func AdminUpdateConfig(c *gin.Context) {
 	var patch map[string]any
 	_ = c.ShouldBindJSON(&patch)
-	cfg := config.Update(patch)
+	cfg, err := config.Update(patch)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	slog.Info("[配置] 已更新配置项", "keys", configKeys(patch))
 	c.JSON(http.StatusOK, gin.H{"config": cfg})
 }

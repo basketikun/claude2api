@@ -22,6 +22,8 @@ type PublicAccount struct {
 	UsageUpdatedAt   *time.Time                `json:"usage_updated_at"`
 	Models           []repository.AccountModel `json:"models"`
 	ModelsUpdatedAt  *time.Time                `json:"models_updated_at"`
+	// Proxy 是该账号绑定的专属出口；空表示走全局 config.proxy。
+	Proxy string `json:"proxy"`
 }
 
 func SessionKey(account *repository.Account) string {
@@ -59,6 +61,7 @@ func PublicAccountView(account *repository.Account) *PublicAccount {
 		UsageUpdatedAt:   account.UsageUpdatedAt,
 		Models:           AccountModels(account),
 		ModelsUpdatedAt:  account.ModelsUpdatedAt,
+		Proxy:            account.Proxy,
 	}
 }
 
@@ -81,6 +84,14 @@ func StartAccountStatusMonitor() {
 	}()
 }
 
+// AccountProxy 返回该账号应使用的出口：优先账号自带 proxy，其次全局配置。
+func AccountProxy(a *repository.Account) string {
+	if a != nil && strings.TrimSpace(a.Proxy) != "" {
+		return strings.TrimSpace(a.Proxy)
+	}
+	return strings.TrimSpace(config.Get().Proxy)
+}
+
 func RefreshAccount(email string) (*repository.Account, bool) {
 	account := repository.AccountByEmail(email)
 	sessionKey := SessionKey(account)
@@ -88,7 +99,7 @@ func RefreshAccount(email string) (*repository.Account, bool) {
 		return nil, false
 	}
 
-	client := NewClaudeAI(sessionKey, config.Get().Proxy, email)
+	client := NewClaudeAI(sessionKey, AccountProxy(account), email)
 	info, err := client.GetUserInfo()
 	if repository.AccountByEmail(account.Email) == nil {
 		return nil, false

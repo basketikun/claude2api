@@ -35,7 +35,7 @@ function renderAccountUsage(account, key) {
   const tone = pending ? "pending" : window.utilization >= 1 ? "full" : window.utilization >= 0.8 ? "high" : "normal";
   const time = reset.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
   return `<div class="account-usage ${tone}">
-    <div class="account-usage-head"><strong>${esc(percent)}</strong><time datetime="${reset.toISOString()}" title="${esc(`${time} 重置${pending ? "，已到重置时间，等待新对话更新用量" : ""}`)}">${pending ? "待更新" : `${esc(time)}重置`}</time></div>
+    <div class="account-usage-head"><strong>${esc(percent)}</strong><time datetime="${reset.toISOString()}" title="${esc(`${time} 重置${pending ? "，已到重置时间，等待新对话更新用量" : ""}`)}">${pending ? "待更新" : `${esc(time)} 重置`}</time></div>
     <progress max="1" value="${window.utilization}" aria-label="${key === "5h" ? "5 小时" : "7 天"}已用 ${esc(percent)}${pending ? "，已到重置时间，待更新" : ""}"></progress>
   </div>`;
 }
@@ -44,6 +44,7 @@ const AUTH_TOKEN_KEY = "claude2api_credential";
 const AUTH_ROLE_KEY = "claude2api_role";
 let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
 let authRole = localStorage.getItem(AUTH_ROLE_KEY) || "";
+let cookieAuth = false;
 
 function saveAuth(token, role) {
   authToken = token;
@@ -54,6 +55,7 @@ function saveAuth(token, role) {
 
 function clearAuth() {
   authToken = authRole = "";
+  cookieAuth = false;
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_ROLE_KEY);
 }
@@ -259,12 +261,12 @@ function renderTable() {
   const rows = filteredAccounts();
 
   if (!ACCOUNTS.length) {
-    body.innerHTML = `<tr><td colspan="10" class="empty">暂无账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty">暂无账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="10" class="empty">没有符合条件的账号</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty">没有符合条件的账号</td></tr>`;
     $("#pager").innerHTML = "";
     return;
   }
@@ -276,16 +278,17 @@ function renderTable() {
 
   body.innerHTML = pageRows
     .map((a, i) => `<tr data-email="${esc(a.email)}">
-      <td>${start + i + 1}</td>
-      <td class="mono">${esc(a.email)}</td>
-      <td>${statusBadge(a.status)}</td>
-      <td><span class="account-plan" title="${esc(a.subscription_plan)}">${esc(accountPlanText(a.subscription_plan))}</span></td>
-      <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "5h")}</td>
-      <td class="account-usage-cell" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "7d")}</td>
-      <td class="mono">${esc(fmtTime(a.created_at) || "—")}</td>
-      <td>${esc(fmtSurvived(a.created_at))}</td>
-      <td class="mono">${esc(fmtTime(a.updated_at) || "—")}</td>
-      <td>
+      <td class="col-idx" data-label="#">${start + i + 1}</td>
+      <td class="mono col-email" data-label="邮箱">${esc(a.email)}</td>
+      <td data-label="状态">${statusBadge(a.status)}</td>
+      <td data-label="套餐"><span class="account-plan" title="${esc(a.subscription_plan)}">${esc(accountPlanText(a.subscription_plan))}</span></td>
+      <td class="account-proxy-cell" data-label="出口"><button class="proxy-chip act-proxy" title="${esc(a.proxy || "使用全局出口")}">${a.proxy ? esc(shortProxy(a.proxy)) : "全局"}</button></td>
+      <td class="account-usage-cell" data-label="5 小时" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "5h")}</td>
+      <td class="account-usage-cell" data-label="7 天" title="${esc(a.usage_updated_at ? `记录于 ${fmtTime(a.usage_updated_at)}` : "")}">${renderAccountUsage(a, "7d")}</td>
+      <td class="mono col-time" data-label="创建" title="${esc(fmtTime(a.created_at) || "")}">${esc((fmtTime(a.created_at) || "—").slice(0, 16))}</td>
+      <td data-label="已存活">${esc(fmtSurvived(a.created_at))}</td>
+      <td class="mono col-time" data-label="刷新" title="${esc(fmtTime(a.updated_at) || "")}">${esc((fmtTime(a.updated_at) || "—").slice(0, 16))}</td>
+      <td class="col-act" data-label="操作">
         <button class="btn-sm act-refresh">刷新</button>
         <button class="btn-sm act-detail">详情</button>
         <button class="btn-sm btn-danger act-del">删除</button>
@@ -294,6 +297,16 @@ function renderTable() {
     .join("");
 
   renderPager(rows.length, totalPages);
+}
+
+// shortProxy 只显示出口的 host:port，完整串放在 title 里。
+function shortProxy(p) {
+  try {
+    const u = new URL(p.replace(/^socks5h?:\/\//, "socks5://").replace(/^http:\/\//, "http://"));
+    return (u.hostname || p).slice(0, 22);
+  } catch (e) {
+    return String(p).slice(0, 22);
+  }
 }
 
 function renderPager(total, totalPages) {
@@ -344,10 +357,11 @@ async function loadAccounts() {
 }
 
 async function fetchModels() {
+  const headers = {};
+  if (authToken) headers.Authorization = "Bearer " + authToken;
   const res = await fetch("/v1/models", {
-    headers: {
-      Authorization: "Bearer " + authToken,
-    },
+    credentials: "same-origin",
+    headers,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
@@ -720,12 +734,12 @@ async function sendTestChat() {
   renderChat();
   const started = performance.now();
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (key) headers.Authorization = "Bearer " + key;
     const res = await fetch("/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + key,
-      },
+      credentials: "same-origin",
+      headers,
       body: JSON.stringify({
         model,
         stream: true,
@@ -770,7 +784,11 @@ function switchPage(name) {
   if (currentRole !== "admin" && name !== "pool") return;
   document
     .querySelectorAll(".nav-item")
-    .forEach((b) => b.classList.toggle("active", b.dataset.page === (name === "log-detail" ? "logs" : name)));
+    .forEach((b) => {
+      const on = b.dataset.page === (name === "log-detail" ? "logs" : name);
+      b.classList.toggle("active", on);
+      if (on) b.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
   document
     .querySelectorAll(".page")
     .forEach((p) => p.classList.toggle("hidden", p.id !== "page-" + name));
@@ -799,8 +817,7 @@ async function loadKeys() {
       <tr data-id="${k.id}">
         <td>${i + 1}</td>
         <td>${esc(k.name || "—")}</td>
-        <td><div class="key-cell"><span class="k">${esc(k.key)}</span>
-          <button class="btn-sm act-copy">复制</button></div></td>
+        <td><div class="key-cell"><code class="k">${esc(k.prefix || "sk-…")}</code></div></td>
         <td class="mono">${esc(fmtTime(k.created_at) || "—")}</td>
         <td><button class="btn-sm btn-danger act-key-del">删除</button></td>
       </tr>`,
@@ -816,11 +833,16 @@ async function createKey() {
   const value = $("#key-value").value.trim();
   $("#btn-key-create").disabled = true;
   try {
-    await api("/api/keys", "POST", { name, key: value });
+    const created = await api("/api/keys", "POST", { name, key: value });
     $("#key-name").value = "";
     $("#key-value").value = "";
     await loadKeys();
-    showMsg("密钥已创建", "ok");
+    if (created.key?.key) {
+      const box = $("#key-created");
+      box.textContent = `新密钥仅显示一次：${created.key.key}`;
+      box.classList.remove("hidden");
+    }
+    showMsg("密钥已创建，请立即保存新密钥", "ok");
   } catch (e) {
     showMsg("创建密钥失败: " + e.message, "err");
   } finally {
@@ -887,7 +909,7 @@ async function loadLogs() {
     renderLogsPager();
   } catch (e) {
     $("#logs-stats").textContent = "";
-    body.innerHTML = `<tr><td colspan="10" class="empty">加载失败：${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty">加载失败：${esc(e.message)}</td></tr>`;
     updateLogSelection();
   }
 }
@@ -1058,6 +1080,58 @@ $("#account-models").addEventListener("click", (e) => {
     () => showMsg("复制失败，请手动选择", "err"),
   );
 });
+
+// 每号出口：点表格里的代理胶囊即可编辑
+$("#acc-body").addEventListener("click", async (e) => {
+  const btn = e.target.closest(".act-proxy");
+  if (!btn) return;
+  const tr = btn.closest("tr");
+  const email = tr && tr.dataset.email;
+  if (!email) return;
+  const acc = ACCOUNTS.find((a) => a.email === email) || {};
+  const next = window.prompt(
+    `${email}\n\n输入专属住宅代理（留空 = 使用全局出口）：\nsocks5://user:pass@host:1080`,
+    acc.proxy || ""
+  );
+  if (next === null) return;
+  try {
+    await api("/api/accounts/proxy", "POST", { email, proxy: next.trim() });
+    await refreshAccountsPage();
+  } catch (err) {
+    toast(`保存失败：${err.message || err}`);
+  }
+});
+
+// Telegram 登录（服务端未配置时按钮不显示）。
+// 登录视图可能被 app 重新渲染，所以用幂等函数 + 定时器持续兜底。
+let TG_CFG = null;
+async function tgEnsure() {
+  const host = document.getElementById("tg-login");
+  if (!host || host.dataset.tg === "1") return;
+  if (TG_CFG === null) {
+    try {
+      TG_CFG = await fetch("/api/auth/telegram/config").then((x) => x.json());
+    } catch (e) {
+      TG_CFG = { enabled: false };
+    }
+  }
+  if (!TG_CFG || !TG_CFG.enabled) return;
+  host.dataset.tg = "1";
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = "https://telegram.org/js/telegram-widget.js?22";
+  s.setAttribute("data-telegram-login", TG_CFG.bot_name);
+  s.setAttribute("data-size", "large");
+  s.setAttribute("data-radius", "10");
+  s.setAttribute("data-userpic", "false");
+  s.setAttribute("data-request-access", "write");
+  s.setAttribute("data-auth-url", `${location.origin}/api/auth/telegram`);
+  s.onerror = () => { host.dataset.tg = ""; };
+  host.appendChild(s);
+  host.classList.remove("hidden");
+}
+tgEnsure();
+setInterval(tgEnsure, 1000);
 
 $("#btn-refresh").addEventListener("click", refreshAccountsPage);
 $("#btn-refresh-all").addEventListener("click", refreshAllAccounts);
@@ -1465,7 +1539,7 @@ function initPool(poolRoot) {
 }
 
 function resolvePage() {
-  if (!authRole || !authToken) return { page: "login", role: "guest" };
+  if (!authRole || (!authToken && !cookieAuth)) return { page: "login", role: "guest" };
   return {
     page: "admin",
     role: authRole,
@@ -1473,7 +1547,16 @@ function resolvePage() {
   };
 }
 
-function boot() {
+async function boot() {
+  if (!authRole || !authToken) {
+    try {
+      const s = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" }).then((r) => r.json());
+      if (s && s.authenticated && s.role) {
+        authRole = s.role;
+        cookieAuth = true;
+      }
+    } catch {}
+  }
   const { page, role, initialPage } = resolvePage();
   document.body.dataset.page = page;
   document.body.dataset.role = role;

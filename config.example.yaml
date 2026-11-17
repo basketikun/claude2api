@@ -8,3 +8,9 @@ delete_chat: true            # 删除会话
 max_history_length: 12000    # 附件阈值
 remove_invalid_account: false # 自动移除会话失效的账号
 detailed_api_log: true       # 记录完整 API 请求与输出
+# 每个账号的专属住宅出口写在账号上（后台账号列表「出口」列或导入时 sk|socks5://user:pass@host:1080），
+# 为空则用上面的全局 proxy。下面三项是 Telegram 登录（Login Widget）。
+telegram_bot_token: ""       # @BotFather 拿到的 token；留空 = 关闭 Telegram 登录
+telegram_bot_name: ""        # bot 的 username，不带 @，需在 BotFather /setdomain 绑定本站域名
+telegram_allowed_ids: ""     # 允许登录的 Telegram user id，逗号分隔；留空 = 全部拒绝
+telegram_auth_max_age: 86400 # 登录回调有效期（秒）

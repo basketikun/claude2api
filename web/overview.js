@@ -5,7 +5,7 @@ function initOverview(root, api, showMsg) {
   const numbers = new Intl.NumberFormat("zh-CN");
   const shortNumbers = new Intl.NumberFormat("zh-CN", { notation: "compact", maximumFractionDigits: 1 });
   const dayFormat = new Intl.DateTimeFormat("sv-SE");
-  const colors = ["#36a3cf", "#45a883", "#9181dd", "#d4a45a"];
+  const colors = ["#b85f3d", "#47765a", "#a8752c", "#8a857c"];
   const sourceNames = { "chat/completions": "Chat 对话", responses: "Responses 对话", messages: "Claude 对话", mirror: "网页对话" };
   let days = 30;
   let group = "model";
@@ -78,10 +78,10 @@ function initOverview(root, api, showMsg) {
       data: {
         labels: dates,
         datasets: [
-          { label: "输入估算", data: dates.map((date) => byDay.get(date)?.input_tokens ?? 0), borderColor: colors[0], backgroundColor: "#36a3cf15", fill: true, yAxisID: "tokens" },
-          { label: "回答与工具估算", data: dates.map((date) => byDay.get(date)?.output_tokens ?? 0), borderColor: colors[1], backgroundColor: "#45a88315", fill: true, yAxisID: "tokens" },
+          { label: "输入估算", data: dates.map((date) => byDay.get(date)?.input_tokens ?? 0), borderColor: colors[0], backgroundColor: "#b85f3d18", fill: true, yAxisID: "tokens" },
+          { label: "回答与工具估算", data: dates.map((date) => byDay.get(date)?.output_tokens ?? 0), borderColor: colors[1], backgroundColor: "#47765a18", fill: true, yAxisID: "tokens" },
           { label: "可见思考估算", data: dates.map((date) => byDay.get(date)?.thinking_tokens ?? 0), borderColor: colors[2], yAxisID: "tokens" },
-          { label: "请求数", data: dates.map((date) => byDay.get(date)?.requests ?? 0), borderColor: "#9ca6ad", borderDash: [4, 4], yAxisID: "requests" },
+          { label: "请求数", data: dates.map((date) => byDay.get(date)?.requests ?? 0), borderColor: "#8a857c", borderDash: [4, 4], yAxisID: "requests" },
         ],
       },
       options: {
@@ -91,7 +91,7 @@ function initOverview(root, api, showMsg) {
         plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 6, font: { size: 11 } } } },
         scales: {
           x: { grid: { display: false }, ticks: { maxTicksLimit: 8, callback: (value) => dates[value].slice(5) } },
-          tokens: { beginAtZero: true, grid: { color: "#80808012" }, ticks: { callback: (value) => shortNumbers.format(value) } },
+          tokens: { beginAtZero: true, grid: { color: "#8a857c18" }, ticks: { callback: (value) => shortNumbers.format(value) } },
           requests: { beginAtZero: true, position: "right", grid: { display: false }, ticks: { precision: 0 } },
         },
       },

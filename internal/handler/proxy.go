@@ -188,8 +188,7 @@ func proxyModifyResponse(resp *http.Response) error {
 			resp.Header.Del(k)
 			for _, v := range vals {
 				v = domainStripRe.ReplaceAllString(v, "")
-				v = strings.ReplaceAll(v, "; Secure", "")
-				v = strings.ReplaceAll(v, "; secure", "")
+				// Preserve Secure; the public gateway must not downgrade upstream cookies.
 				resp.Header.Add(k, v)
 			}
 		}
@@ -379,7 +378,9 @@ func ServeReverseProxy(w http.ResponseWriter, r *http.Request, onMain bool) {
 	if !onMain {
 		ucOrig = requestOrigin(r)
 		if parentOrigin := strings.TrimSpace(r.URL.Query().Get("parentOrigin")); parentOrigin != "" {
-			mainOrig = parentOrigin
+			if parsed, err := url.Parse(parentOrigin); err == nil && parsed.Scheme == requestScheme(r) && parsed.Host == r.Host {
+				mainOrig = parentOrigin
+			}
 		}
 	}
 	pc := &proxyCtx{
@@ -391,12 +392,20 @@ func ServeReverseProxy(w http.ResponseWriter, r *http.Request, onMain bool) {
 		ucOrig:         ucOrig,
 	}
 	if onMain && r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/organizations/") && strings.HasSuffix(r.URL.Path, "/completion") {
-		body, err := io.ReadAll(r.Body)
-		r.Body.Close()
+		if r.ContentLength > 20<<20 {
+			http.Error(w, "请求体过大", http.StatusRequestEntityTooLarge)
+			return
+		}
+		body, err := io.ReadAll(io.LimitReader(r.Body, (20<<20)+1))
 		if err != nil {
 			http.Error(w, "无法读取对话内容", http.StatusBadRequest)
 			return
 		}
+		if len(body) > 20<<20 {
+			http.Error(w, "请求体过大", http.StatusRequestEntityTooLarge)
+			return
+		}
+		r.Body.Close()
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		var message struct {
 			Prompt      string `json:"prompt"`
@@ -444,8 +453,10 @@ func artifactAuth(path string) (string, string, string, bool) {
 	}
 	artifactTickets.Lock()
 	ticket, found := artifactTickets.items[token]
+	if found {
+		delete(artifactTickets.items, token) // single-use bearer capability
+	}
 	if found && time.Now().After(ticket.expires) {
-		delete(artifactTickets.items, token)
 		found = false
 	}
 	artifactTickets.Unlock()
