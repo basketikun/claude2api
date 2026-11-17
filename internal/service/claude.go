@@ -374,12 +374,10 @@ func (claudeAI *ClaudeAI) SendMessage(email, convID, model string, prompt Prompt
 		"rendering_mode":      "messages",
 		"timezone":            "America/Los_Angeles",
 	}
-	// Claude.ai 网页端 completion 接口不接受 max_tokens 字段，
-	// 即使 API 兼容层收到该参数也不能转发，否则上游会返回
-	// "max_tokens: Extra inputs are not permitted"。
-	if prompt.Temperature != nil {
-		body["temperature"] = *prompt.Temperature
-	}
+	// Claude.ai 网页端 completion 接口不接受 max_tokens/temperature 字段，
+	// 即使 API 兼容层收到这些参数也不能转发，否则上游会返回
+	// "<field>: Extra inputs are not permitted"。
+	// temperature 特别容易由 OpenAI/Anthropic 客户端默认带上，必须丢弃。
 	if prompt.TopP != nil {
 		body["top_p"] = *prompt.TopP
 	}
